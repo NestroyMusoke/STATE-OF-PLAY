@@ -1,9 +1,25 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AnimatePresence, m } from 'framer-motion'
 import L from 'leaflet'
-import type { IntelligenceReport } from './types'
+import { playCrisisStinger, setAmbientEnabled } from './audio'
+import { IntelPanel } from './components/IntelPanel'
+import { PerspectiveTransition } from './components/PerspectiveTransition'
+import { SegmentedGauge } from './components/SegmentedGauge'
+import { TerminalChrome } from './components/TerminalChrome'
+import { TypewriterText } from './components/TypewriterText'
+import { createCrisisIcon } from './lib/crisisMarker'
+import type { Crisis, IntelligenceReport } from './types'
 
 const AMERICAS_CENTER: L.LatLngExpression = [12, -75]
-const CARACAS: L.LatLngExpression = [10.48, -66.9]
+
+const ACTIVE_CRISIS: Crisis = {
+  id: 'ven-caracas-01',
+  title: 'FLASHPOINT: CARACAS',
+  location: 'Caracas, Venezuela',
+  coordinates: [10.48, -66.9],
+  type: 'military',
+  intelFragment: 'CLASSIFIED // Irregular force movement detected near the capital.',
+}
 
 type ReportState =
   | { status: 'idle' }
@@ -11,11 +27,38 @@ type ReportState =
   | { status: 'ready'; report: IntelligenceReport }
   | { status: 'error' }
 
+type AmbientBlip = {
+  id: number
+  x: number
+  y: number
+}
+
 function App() {
   const mapElement = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
+  const [gaugesOpen, setGaugesOpen] = useState(true)
+  const [ambientEnabled, setAmbientOn] = useState(false)
   const [reportState, setReportState] = useState<ReportState>({ status: 'idle' })
+  const [transmissionComplete, setTransmissionComplete] = useState(false)
+  const [perspectiveWipe, setPerspectiveWipe] = useState(false)
+  const [ambientBlips, setAmbientBlips] = useState<AmbientBlip[]>([])
+
+  const selectCrisis = useCallback((crisis: Crisis) => {
+    map.current?.flyTo(crisis.coordinates, 6, { duration: 1.25 })
+    playCrisisStinger(crisis.type)
+    setPanelOpen(true)
+    setTransmissionComplete(false)
+    setReportState({ status: 'loading' })
+
+    void fetch('/api/llm', { method: 'POST' })
+      .then((response) => {
+        if (!response.ok) throw new Error('Briefing request failed')
+        return response.json() as Promise<IntelligenceReport>
+      })
+      .then((report) => setReportState({ status: 'ready', report }))
+      .catch(() => setReportState({ status: 'error' }))
+  }, [])
 
   useEffect(() => {
     if (!mapElement.current || map.current) return
@@ -31,39 +74,21 @@ function App() {
 
     L.tileLayer(
       'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-      {
-        subdomains: 'abcd',
-        maxZoom: 20,
-      },
+      { subdomains: 'abcd', maxZoom: 20 },
     ).addTo(leafletMap)
 
-    const crisisIcon = L.divIcon({
-      className: 'crisis-marker-wrap',
-      html: '<span class="crisis-marker"><span class="crisis-marker__core"></span></span>',
-      iconAnchor: [18, 18],
-      iconSize: [36, 36],
+    L.marker(ACTIVE_CRISIS.coordinates, {
+      icon: createCrisisIcon(ACTIVE_CRISIS.type),
+      keyboard: true,
+      title: ACTIVE_CRISIS.title,
     })
-
-    L.marker(CARACAS, { icon: crisisIcon })
       .addTo(leafletMap)
-      .bindTooltip('CRISIS // CARACAS', {
-        className: 'crisis-tooltip',
-        direction: 'top',
-        offset: [0, -14],
+      .bindTooltip(ACTIVE_CRISIS.intelFragment, {
+        className: `crisis-tooltip crisis-tooltip--${ACTIVE_CRISIS.type}`,
+        direction: 'right',
+        offset: [19, 0],
       })
-      .on('click', () => {
-        leafletMap.flyTo(CARACAS, 6, { duration: 1.25 })
-        setPanelOpen(true)
-        setReportState({ status: 'loading' })
-
-        void fetch('/api/llm', { method: 'POST' })
-          .then((response) => {
-            if (!response.ok) throw new Error('Briefing request failed')
-            return response.json() as Promise<IntelligenceReport>
-          })
-          .then((report) => setReportState({ status: 'ready', report }))
-          .catch(() => setReportState({ status: 'error' }))
-      })
+      .on('click', () => selectCrisis(ACTIVE_CRISIS))
 
     map.current = leafletMap
 
@@ -71,96 +96,210 @@ function App() {
       leafletMap.remove()
       map.current = null
     }
+  }, [selectCrisis])
+
+  useEffect(() => {
+    if (panelOpen) return
+
+    const spawnBlip = () => {
+      const id = Date.now()
+      setAmbientBlips((current) => [
+        ...current.slice(-2),
+        { id, x: 18 + Math.random() * 64, y: 22 + Math.random() * 54 },
+      ])
+      window.setTimeout(
+        () => setAmbientBlips((current) => current.filter((blip) => blip.id !== id)),
+        2800,
+      )
+    }
+
+    const initial = window.setTimeout(spawnBlip, 1800)
+    const interval = window.setInterval(spawnBlip, 6200)
+    return () => {
+      window.clearTimeout(initial)
+      window.clearInterval(interval)
+    }
+  }, [panelOpen])
+
+  useEffect(() => () => setAmbientEnabled(false), [])
+
+  const closePanel = useCallback(() => {
+    setPanelOpen(false)
+    setTransmissionComplete(false)
+    map.current?.flyTo(AMERICAS_CENTER, 3.25, { duration: 1 })
   }, [])
 
-  function closePanel() {
-    setPanelOpen(false)
-    map.current?.flyTo(AMERICAS_CENTER, 3.25, { duration: 1 })
+  const completeTransmission = useCallback(() => setTransmissionComplete(true), [])
+
+  function toggleAmbient() {
+    const next = !ambientEnabled
+    setAmbientOn(next)
+    setAmbientEnabled(next)
+  }
+
+  function testPerspectiveWipe() {
+    if (perspectiveWipe) return
+    setPerspectiveWipe(true)
+    window.setTimeout(() => setPerspectiveWipe(false), 1550)
   }
 
   return (
     <main className="command-map">
       <div ref={mapElement} className="map-canvas" aria-label="Strategic map" />
 
-      <header className="masthead">
-        <div>
-          <p className="eyebrow">GLOBAL SITUATION ROOM</p>
-          <h1>STATE OF PLAY</h1>
-        </div>
-        <div className="system-status">
-          <span className="status-dot" aria-hidden="true" />
-          SYSTEM ONLINE
-        </div>
-      </header>
-
-      <div className="map-index" aria-hidden="true">
-        <span>WESTERN HEMISPHERE</span>
-        <span>12.000°N / 75.000°W</span>
+      <div className="map-graticule" aria-hidden="true" />
+      <div className="radar-sweep" aria-hidden="true" />
+      <div className="ambient-signals" aria-hidden="true">
+        {ambientBlips.map((blip) => (
+          <span
+            className="signal-blip"
+            key={blip.id}
+            style={{ left: `${blip.x}%`, top: `${blip.y}%` }}
+          >
+            <i />
+            SIGNAL DETECTED
+          </span>
+        ))}
       </div>
 
-      <aside
-        className={`intel-panel${panelOpen ? ' intel-panel--open' : ''}`}
-        aria-hidden={!panelOpen}
+      <TerminalChrome
+        ambientEnabled={ambientEnabled}
+        onAmbientToggle={toggleAmbient}
+      />
+
+      <div className="map-letterhead" aria-hidden="true">
+        <span>STATE OF PLAY</span>
+        <small>WESTERN HEMISPHERE // LIVE THEATER</small>
+      </div>
+
+      <button
+        type="button"
+        className="drawer-tab drawer-tab--left"
+        onClick={() => setGaugesOpen((open) => !open)}
+        aria-expanded={gaugesOpen}
       >
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">INTELLIGENCE REPORT</p>
-            <h2>CARACAS, VENEZUELA</h2>
-          </div>
-          <button type="button" className="close-button" onClick={closePanel}>
-            <span aria-hidden="true">×</span>
-            <span className="sr-only">Close intelligence report</span>
-          </button>
-        </div>
+        {gaugesOpen ? '‹' : '›'} <span>WORLD STATE</span>
+      </button>
 
-        <div className="coordinate-strip">
-          <span>10.480°N</span>
-          <span>66.900°W</span>
-          <span className="classification">CLASSIFIED</span>
-        </div>
-
-        {reportState.status === 'loading' && (
-          <div className="loading-state">
-            <span className="loading-line" />
-            DECRYPTING FIELD REPORT…
-          </div>
+      <AnimatePresence>
+        {gaugesOpen && (
+          <m.aside
+            className="world-state-drawer hud-frame"
+            initial={{ opacity: 0, x: -34 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -34 }}
+            transition={{ duration: 0.28 }}
+          >
+            <div className="panel-function-row">
+              <span>STATE//MON</span>
+              <span>PASSIVE</span>
+            </div>
+            <p className="eyebrow">GLOBAL TELEMETRY</p>
+            <h2>THEATER STATUS</h2>
+            <SegmentedGauge label="REGIONAL STABILITY" value={62} tone="warning" />
+            <SegmentedGauge label="INTEL CONFIDENCE" value={47} tone="signal" />
+            <SegmentedGauge label="ESCALATION RISK" value={71} tone="alert" />
+            <p className="gauge-disclaimer">DISPLAY STUB // NO GAME STATE CONNECTED</p>
+          </m.aside>
         )}
+      </AnimatePresence>
 
-        {reportState.status === 'error' && (
-          <p className="error-state">
-            Secure channel unavailable. Re-select the crisis marker to retry.
-          </p>
-        )}
+      <AnimatePresence>
+        {panelOpen && (
+          <IntelPanel
+            eyebrow="PRIORITY INTELLIGENCE"
+            mode="briefing"
+            onClose={closePanel}
+            title={ACTIVE_CRISIS.title}
+          >
+            {reportState.status === 'loading' && (
+              <div className="loading-state">
+                <span className="loading-line" />
+                DECRYPTING FIELD REPORT…
+              </div>
+            )}
 
-        {reportState.status === 'ready' && (
-          <div className="report-content">
-            <section>
-              <h3>Briefing</h3>
-              <p>{reportState.report.briefing}</p>
-            </section>
-            <section>
-              <h3>Threat assessment</h3>
-              <p>{reportState.report.threatAssessment}</p>
-            </section>
-            <section>
-              <h3>Response options</h3>
-              <ol>
-                {reportState.report.options.map((option) => (
-                  <li key={option}>{option}</li>
-                ))}
-              </ol>
-            </section>
-          </div>
+            {reportState.status === 'error' && (
+              <p className="error-state">
+                SECURE CHANNEL UNAVAILABLE. RESELECT CRISIS VECTOR TO RETRY.
+              </p>
+            )}
+
+            {reportState.status === 'ready' && (
+              <div className="report-content">
+                <section>
+                  <h3>01 // Situation briefing</h3>
+                  <TypewriterText
+                    text={reportState.report.briefing}
+                    onComplete={completeTransmission}
+                  />
+                </section>
+
+                <AnimatePresence>
+                  {transmissionComplete && (
+                    <m.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.28 }}
+                    >
+                      <section>
+                        <h3>02 // Threat assessment</h3>
+                        <p>{reportState.report.threatAssessment}</p>
+                      </section>
+                      <section>
+                        <h3>03 // Response vectors</h3>
+                        <ol>
+                          {reportState.report.options.map((option) => (
+                            <li key={option}>{option}</li>
+                          ))}
+                        </ol>
+                      </section>
+                    </m.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+          </IntelPanel>
         )}
-      </aside>
+      </AnimatePresence>
+
+      <m.nav
+        className="crisis-dock hud-frame"
+        aria-label="Active crises"
+        initial={{ opacity: 0, y: 18, x: '-50%' }}
+        animate={{ opacity: 1, y: 0, x: '-50%' }}
+        transition={{ delay: 0.18, duration: 0.34 }}
+      >
+        <span className="dock-label">ACTIVE CRISES // 01</span>
+        <button type="button" onClick={() => selectCrisis(ACTIVE_CRISIS)}>
+          <i className={`dock-threat dock-threat--${ACTIVE_CRISIS.type}`} />
+          <span>
+            <strong>{ACTIVE_CRISIS.location}</strong>
+            {ACTIVE_CRISIS.type.toUpperCase()} // PRIORITY
+          </span>
+        </button>
+      </m.nav>
+
+      <button type="button" className="perspective-test" onClick={testPerspectiveWipe}>
+        TEST // PERSPECTIVE FLIP
+      </button>
 
       <div className="map-attribution">
-        © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ©{' '}
+        © <a href="https://www.openstreetmap.org/copyright">OSM</a> ©{' '}
         <a href="https://carto.com/attributions">CARTO</a>
       </div>
+
+      <div className="film-grain" aria-hidden="true" />
+      <div className="scanlines" aria-hidden="true" />
+      <div className="vignette" aria-hidden="true" />
+
+      <AnimatePresence>
+        {perspectiveWipe && (
+          <PerspectiveTransition targetLetterhead="DIRECTORATE // ALPHA" />
+        )}
+      </AnimatePresence>
     </main>
   )
 }
 
 export default App
-

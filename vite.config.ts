@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import llmHandler from './api/llm'
+import newsHandler from './api/news'
 
 /**
  * Vercel mounts files in /api automatically. Vite does not, so this tiny adapter
@@ -13,6 +14,9 @@ function localApiPlugin(): Plugin {
       server.middlewares.use('/api/llm', (request, response) => {
         void llmHandler(request, response)
       })
+      server.middlewares.use('/api/news', (request, response) => {
+        void newsHandler(request, response)
+      })
     },
   }
 }
@@ -20,4 +24,3 @@ function localApiPlugin(): Plugin {
 export default defineConfig({
   plugins: [react(), localApiPlugin()],
 })
-

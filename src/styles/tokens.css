@@ -1,0 +1,19 @@
+:root {
+  --color-base: #0b0f14;
+  --color-panel: #121821;
+  --color-alert: #ff3b30;
+  --color-warning: #ffb000;
+  --color-signal: #00e5ff;
+  --color-text: #e8edf2;
+
+  --font-data: 'IBM Plex Mono', monospace;
+  --font-display: 'Saira Condensed', sans-serif;
+
+  --hud-notch: 14px;
+  --hud-border: color-mix(in srgb, var(--color-signal) 34%, transparent);
+  --hud-border-dim: color-mix(in srgb, var(--color-text) 14%, transparent);
+  --hud-glow: color-mix(in srgb, var(--color-signal) 14%, transparent);
+  --top-bar-height: 58px;
+  --ticker-height: 30px;
+}
+
