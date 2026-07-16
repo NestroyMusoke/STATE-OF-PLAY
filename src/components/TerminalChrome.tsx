@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { m } from 'framer-motion'
+import { useGameState } from '../state/GameState'
+import { SegmentedGauge } from './SegmentedGauge'
 
 type TerminalChromeProps = {
   ambientEnabled: boolean
@@ -12,6 +14,7 @@ function utcTime(date: Date) {
 
 export function TerminalChrome({ ambientEnabled, onAmbientToggle }: TerminalChromeProps) {
   const [time, setTime] = useState(() => utcTime(new Date()))
+  const { activeNation, activeWorldState } = useGameState()
 
   useEffect(() => {
     const interval = window.setInterval(() => setTime(utcTime(new Date())), 1000)
@@ -33,8 +36,14 @@ export function TerminalChrome({ ambientEnabled, onAmbientToggle }: TerminalChro
           <span className="status-item status-item--secure">
             <i aria-hidden="true" /> SECURE CHANNEL
           </span>
-          <span className="status-item">DAY 01 // TURN 01</span>
-          <time className="status-item" dateTime={new Date().toISOString()}>
+          <span className="status-item status-item--turn">
+            {activeNation.shortName} // TURN{' '}
+            {String(activeWorldState.turn).padStart(2, '0')}
+          </span>
+          <time
+            className="status-item status-item--clock"
+            dateTime={new Date().toISOString()}
+          >
             {time}
           </time>
           <button
@@ -47,6 +56,27 @@ export function TerminalChrome({ ambientEnabled, onAmbientToggle }: TerminalChro
           </button>
         </div>
       </m.header>
+
+      <m.section
+        className="world-meter-bar"
+        aria-label={`${activeNation.name} world state`}
+        initial={{ opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.12, duration: 0.34 }}
+      >
+        <span className="meter-bar-label">
+          {activeNation.shortName} WORLD STATE // LIVE
+        </span>
+        {activeNation.meters.map((meter) => (
+          <SegmentedGauge
+            compact
+            key={meter.key}
+            label={meter.label.toUpperCase()}
+            tone={meter.tone}
+            value={activeWorldState.meters[meter.key]}
+          />
+        ))}
+      </m.section>
 
       <div className="headline-ticker" aria-label="Incoming intelligence headlines">
         <span className="ticker-label">INCOMING // </span>

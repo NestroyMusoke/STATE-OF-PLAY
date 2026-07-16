@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useCountUp } from 'react-countup'
 
 type SegmentedGaugeProps = {
+  compact?: boolean
   label: string
   tone: 'alert' | 'warning' | 'signal'
   value: number
@@ -9,10 +10,17 @@ type SegmentedGaugeProps = {
 
 const SEGMENTS = 12
 
-export function SegmentedGauge({ label, tone, value }: SegmentedGaugeProps) {
+export function SegmentedGauge({
+  compact = false,
+  label,
+  tone,
+  value,
+}: SegmentedGaugeProps) {
   const previousValue = useRef(value)
   const countUpRef = useRef<HTMLSpanElement>(null)
-  const [flash, setFlash] = useState(false)
+  const [changeDirection, setChangeDirection] = useState<
+    'gain' | 'loss' | null
+  >(null)
 
   useCountUp({
     // react-countup's published ref type predates React 19's nullable RefObject generic.
@@ -26,8 +34,8 @@ export function SegmentedGauge({ label, tone, value }: SegmentedGaugeProps) {
   useEffect(() => {
     if (previousValue.current === value) return
 
-    setFlash(true)
-    const timeout = window.setTimeout(() => setFlash(false), 420)
+    setChangeDirection(value > previousValue.current ? 'gain' : 'loss')
+    const timeout = window.setTimeout(() => setChangeDirection(null), 560)
     previousValue.current = value
     return () => window.clearTimeout(timeout)
   }, [value])
@@ -35,7 +43,11 @@ export function SegmentedGauge({ label, tone, value }: SegmentedGaugeProps) {
   const activeSegments = Math.round((Math.max(0, Math.min(100, value)) / 100) * SEGMENTS)
 
   return (
-    <div className={`segmented-gauge gauge--${tone}${flash ? ' gauge--flash' : ''}`}>
+    <div
+      className={`segmented-gauge gauge--${tone}${compact ? ' segmented-gauge--compact' : ''}${
+        changeDirection ? ` gauge--change gauge--${changeDirection}` : ''
+      }`}
+    >
       <div className="gauge-meta">
         <span>{label}</span>
         <span><span ref={countUpRef}>0</span>%</span>

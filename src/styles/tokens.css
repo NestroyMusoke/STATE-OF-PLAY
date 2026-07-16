@@ -4,6 +4,7 @@
   --color-alert: #ff3b30;
   --color-warning: #ffb000;
   --color-signal: #00e5ff;
+  --color-gain: #35f28a;
   --color-text: #e8edf2;
 
   --font-data: 'IBM Plex Mono', monospace;
@@ -14,6 +15,7 @@
   --hud-border-dim: color-mix(in srgb, var(--color-text) 14%, transparent);
   --hud-glow: color-mix(in srgb, var(--color-signal) 14%, transparent);
   --top-bar-height: 58px;
+  --meter-bar-height: 48px;
+  --chrome-height: calc(var(--top-bar-height) + var(--meter-bar-height));
   --ticker-height: 30px;
 }
-

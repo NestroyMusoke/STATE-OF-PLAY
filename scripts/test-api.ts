@@ -1,0 +1,96 @@
+import { existsSync } from 'node:fs'
+import { loadEnvFile } from 'node:process'
+import type { BriefingRequest } from '../src/types'
+import {
+  briefingModel,
+  callLiveBriefing,
+} from '../api/_shared/generation'
+import { logApiPath, reserveOpenAICall } from '../api/_shared/runtime'
+
+if (existsSync('.env')) loadEnvFile('.env')
+
+const apiKey = process.env.OPENAI_API_KEY?.trim()
+
+if (!apiKey) {
+  logApiPath('test:api', {
+    path: 'skipped',
+    reason: 'missing-key',
+    requests: 0,
+  })
+  console.info(
+    '[test:api] Add OPENAI_API_KEY to .env, then rerun this command. No API request was sent.',
+  )
+  process.exit(0)
+}
+
+const budget = await reserveOpenAICall()
+if (!budget.allowed) {
+  logApiPath('test:api', {
+    path: 'blocked',
+    reason: 'daily-limit',
+    requests: 0,
+    count: budget.count,
+    limit: budget.limit,
+  })
+  throw new Error('Daily OpenAI call ceiling reached; no test request was sent.')
+}
+
+const request: BriefingRequest = {
+  headlineId: 'api-schema-smoke-test',
+  crisis: {
+    id: 'api-schema-smoke-test',
+    title: 'API SCHEMA VERIFICATION',
+    location: 'Caracas, Venezuela',
+    coordinates: [10.48, -66.9],
+    type: 'diplomatic',
+    intelFragment: 'Schema verification only.',
+  },
+  perspective: {
+    nationId: 'united-states',
+    nationName: 'United States',
+    seat: 'Washington',
+    meters: {
+      approval: 62,
+      treasury: 68,
+      legitimacy: 58,
+      tension: 42,
+    },
+    advisors: [
+      {
+        role: 'Secretary of State',
+        stance: 'restraint',
+        line: 'Preserve diplomatic room for maneuver.',
+      },
+      {
+        role: 'Secretary of Defense',
+        stance: 'leverage',
+        line: 'Maintain credible options while the situation develops.',
+      },
+    ],
+  },
+}
+
+const model = briefingModel()
+logApiPath('test:api', {
+  path: 'live',
+  model,
+  requests: 1,
+  count: budget.count,
+  limit: budget.limit,
+})
+
+const report = await callLiveBriefing(apiKey, request, model)
+
+console.info('[test:api] SUCCESS — exactly one request sent and schema validated.')
+console.info(
+  JSON.stringify(
+    {
+      model,
+      briefingCharacters: report.briefing.length,
+      options: report.options.length,
+      advisors: report.advisors.map((advisor) => advisor.role),
+    },
+    null,
+    2,
+  ),
+)

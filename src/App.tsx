@@ -4,11 +4,12 @@ import L from 'leaflet'
 import { playCrisisStinger, setAmbientEnabled } from './audio'
 import { IntelPanel } from './components/IntelPanel'
 import { PerspectiveTransition } from './components/PerspectiveTransition'
-import { SegmentedGauge } from './components/SegmentedGauge'
 import { TerminalChrome } from './components/TerminalChrome'
 import { TypewriterText } from './components/TypewriterText'
 import { createCrisisIcon } from './lib/crisisMarker'
-import type { Crisis, IntelligenceReport } from './types'
+import { createNationPromptContext } from './game/nations'
+import { useGameState } from './state/GameState'
+import type { BriefingRequest, Crisis, IntelligenceReport } from './types'
 
 const AMERICAS_CENTER: L.LatLngExpression = [12, -75]
 
@@ -37,12 +38,12 @@ function App() {
   const mapElement = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
-  const [gaugesOpen, setGaugesOpen] = useState(true)
   const [ambientEnabled, setAmbientOn] = useState(false)
   const [reportState, setReportState] = useState<ReportState>({ status: 'idle' })
   const [transmissionComplete, setTransmissionComplete] = useState(false)
   const [perspectiveWipe, setPerspectiveWipe] = useState(false)
   const [ambientBlips, setAmbientBlips] = useState<AmbientBlip[]>([])
+  const { activeNation, activeWorldState } = useGameState()
 
   const selectCrisis = useCallback((crisis: Crisis) => {
     map.current?.flyTo(crisis.coordinates, 6, { duration: 1.25 })
@@ -51,14 +52,26 @@ function App() {
     setTransmissionComplete(false)
     setReportState({ status: 'loading' })
 
-    void fetch('/api/llm', { method: 'POST' })
+    const briefingRequest: BriefingRequest = {
+      crisis,
+      perspective: createNationPromptContext(
+        activeNation.id,
+        activeWorldState.meters,
+      ),
+    }
+
+    void fetch('/api/llm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(briefingRequest),
+    })
       .then((response) => {
         if (!response.ok) throw new Error('Briefing request failed')
         return response.json() as Promise<IntelligenceReport>
       })
       .then((report) => setReportState({ status: 'ready', report }))
       .catch(() => setReportState({ status: 'error' }))
-  }, [])
+  }, [activeNation.id, activeWorldState.meters])
 
   useEffect(() => {
     if (!mapElement.current || map.current) return
@@ -172,38 +185,6 @@ function App() {
         <small>WESTERN HEMISPHERE // LIVE THEATER</small>
       </div>
 
-      <button
-        type="button"
-        className="drawer-tab drawer-tab--left"
-        onClick={() => setGaugesOpen((open) => !open)}
-        aria-expanded={gaugesOpen}
-      >
-        {gaugesOpen ? '‹' : '›'} <span>WORLD STATE</span>
-      </button>
-
-      <AnimatePresence>
-        {gaugesOpen && (
-          <m.aside
-            className="world-state-drawer hud-frame"
-            initial={{ opacity: 0, x: -34 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -34 }}
-            transition={{ duration: 0.28 }}
-          >
-            <div className="panel-function-row">
-              <span>STATE//MON</span>
-              <span>PASSIVE</span>
-            </div>
-            <p className="eyebrow">GLOBAL TELEMETRY</p>
-            <h2>THEATER STATUS</h2>
-            <SegmentedGauge label="REGIONAL STABILITY" value={62} tone="warning" />
-            <SegmentedGauge label="INTEL CONFIDENCE" value={47} tone="signal" />
-            <SegmentedGauge label="ESCALATION RISK" value={71} tone="alert" />
-            <p className="gauge-disclaimer">DISPLAY STUB // NO GAME STATE CONNECTED</p>
-          </m.aside>
-        )}
-      </AnimatePresence>
-
       <AnimatePresence>
         {panelOpen && (
           <IntelPanel
@@ -247,7 +228,21 @@ function App() {
                         <p>{reportState.report.threatAssessment}</p>
                       </section>
                       <section>
-                        <h3>03 // Response vectors</h3>
+                        <h3>03 // Advisory channel</h3>
+                        <div className="advisor-grid">
+                          {reportState.report.advisors.map((advisor) => (
+                            <article className="advisor-line" key={advisor.role}>
+                              <div>
+                                <strong>{advisor.role}</strong>
+                                <span>{advisor.stance}</span>
+                              </div>
+                              <p>“{advisor.line}”</p>
+                            </article>
+                          ))}
+                        </div>
+                      </section>
+                      <section>
+                        <h3>04 // Response vectors</h3>
                         <ol>
                           {reportState.report.options.map((option) => (
                             <li key={option}>{option}</li>
