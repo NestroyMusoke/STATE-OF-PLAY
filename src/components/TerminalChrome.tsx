@@ -29,8 +29,11 @@ export function TerminalChrome({ ambientEnabled, onAmbientToggle }: TerminalChro
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <div className="classification-banner" data-corrupt="TS//SITROOM">
-          TOP SECRET // SITROOM
+        <div
+          className="classification-banner"
+          data-corrupt={`${activeNation.shortName}//SITROOM`}
+        >
+          {activeNation.shortName} // TOP SECRET // SITROOM
         </div>
         <div className="terminal-statuses">
           <span className="status-item status-item--secure">

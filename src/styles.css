@@ -51,6 +51,25 @@ h2 {
   background: var(--color-base);
 }
 
+.command-map--venezuela {
+  --color-signal: var(--color-warning);
+}
+
+.command-map::before {
+  position: absolute;
+  inset: var(--chrome-height) 0 var(--ticker-height);
+  z-index: 405;
+  pointer-events: none;
+  content: '';
+  background: radial-gradient(
+    circle at 50% 52%,
+    transparent 18%,
+    color-mix(in srgb, var(--color-signal) 7%, transparent) 100%
+  );
+  mix-blend-mode: screen;
+  transition: background 0.5s ease;
+}
+
 .map-canvas {
   position: absolute;
   inset: 0;
@@ -66,6 +85,12 @@ h2 {
 .leaflet-tile-pane {
   opacity: 0.88;
   filter: grayscale(1) contrast(1.22) brightness(0.72);
+  transition: filter 0.55s ease, opacity 0.55s ease;
+}
+
+.command-map--venezuela .leaflet-tile-pane {
+  opacity: 0.84;
+  filter: grayscale(1) sepia(0.48) contrast(1.26) brightness(0.68);
 }
 
 .map-graticule {
@@ -535,6 +560,31 @@ h2 {
   border-bottom: 1px solid var(--hud-border-dim);
 }
 
+.causality-callout {
+  margin: 18px 0 2px;
+  padding: 12px 13px;
+  border: 1px solid var(--color-warning);
+  border-left: 3px solid var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 7%, transparent);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-warning) 12%, transparent);
+}
+
+.causality-callout span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--color-warning);
+  font-size: 0.47rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+.report-content .causality-callout p {
+  color: var(--color-text);
+  font-size: 0.65rem;
+  line-height: 1.55;
+}
+
 .report-content h3 {
   margin-bottom: 12px;
   color: var(--color-signal);
@@ -563,6 +613,52 @@ h2 {
 
 .report-content li::marker {
   color: var(--color-signal);
+}
+
+.report-content .decision-options {
+  padding-left: 0;
+  list-style: none;
+}
+
+.decision-options button {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid var(--hud-border-dim);
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-signal) 3%, transparent);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  cursor: pointer;
+  font-family: var(--font-data);
+  font-size: 0.66rem;
+  line-height: 1.55;
+  text-align: left;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.decision-options button > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--color-signal);
+  font-size: 0.45rem;
+  letter-spacing: 0.12em;
+}
+
+.decision-options button:hover:not(:disabled),
+.decision-options button:focus-visible:not(:disabled) {
+  border-color: var(--color-signal);
+  outline: none;
+  background: color-mix(in srgb, var(--color-signal) 9%, transparent);
+  box-shadow: 0 0 10px var(--hud-glow);
+}
+
+.decision-options button:disabled {
+  cursor: wait;
+  opacity: 0.46;
+}
+
+.decision-options .decision-option--transmitting:disabled {
+  color: var(--color-warning);
+  opacity: 1;
 }
 
 .advisor-grid {
@@ -886,9 +982,19 @@ h2 {
   z-index: 820;
   display: flex;
   align-items: stretch;
+  width: min(980px, calc(100vw - 28px));
   min-width: min(390px, 82vw);
   padding: 0;
   transform: translateX(-50%);
+}
+
+.crisis-dock-list {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-color: var(--color-signal) var(--color-panel);
+  scrollbar-width: thin;
 }
 
 .dock-label {
@@ -904,7 +1010,8 @@ h2 {
 
 .crisis-dock button {
   display: flex;
-  flex: 1;
+  flex: 0 0 auto;
+  min-width: 190px;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
@@ -915,6 +1022,10 @@ h2 {
   font-size: 0.48rem;
   letter-spacing: 0.08em;
   text-align: left;
+}
+
+.crisis-dock button + button {
+  border-left: 1px solid var(--hud-border-dim);
 }
 
 .crisis-dock button:hover,
@@ -941,6 +1052,90 @@ h2 {
   box-shadow: 0 0 8px var(--color-alert);
 }
 
+.fallback-mode-badge {
+  position: absolute;
+  bottom: calc(var(--ticker-height) + 16px);
+  left: 14px;
+  z-index: 840;
+  padding: 8px 11px;
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+  background: var(--color-panel);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-warning) 18%, transparent);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  font-size: 0.48rem;
+  letter-spacing: 0.1em;
+}
+
+.event-log {
+  position: absolute;
+  top: calc(var(--chrome-height) + 18px);
+  left: 14px;
+  z-index: 780;
+  width: min(330px, calc(100vw - 28px));
+  max-height: 42vh;
+  padding: 14px 15px;
+  overflow-y: auto;
+}
+
+.event-log-header,
+.event-log li > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.event-log-header {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hud-border);
+  color: var(--color-signal);
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+}
+
+.event-log ol {
+  display: grid;
+  gap: 11px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event-log li {
+  padding-left: 10px;
+  border-left: 1px solid var(--color-warning);
+}
+
+.event-log li > div,
+.event-log-empty {
+  color: color-mix(in srgb, var(--color-text) 48%, transparent);
+  font-size: 0.43rem;
+  letter-spacing: 0.08em;
+}
+
+.event-log strong {
+  display: block;
+  margin: 5px 0;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.event-log p {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 68%, transparent);
+  font-size: 0.54rem;
+  line-height: 1.5;
+}
+
+.event-log-empty {
+  margin: 12px 0 0;
+  color: var(--color-warning);
+}
+
 .perspective-test {
   position: absolute;
   right: 14px;
@@ -961,6 +1156,11 @@ h2 {
   border-color: var(--color-signal);
   outline: none;
   box-shadow: 0 0 12px var(--hud-glow);
+}
+
+.perspective-test:disabled {
+  cursor: wait;
+  opacity: 0.5;
 }
 
 .perspective-wipe {
@@ -1167,8 +1367,20 @@ h2 {
     width: calc(100% - 20px);
   }
 
+  .crisis-dock-list {
+    width: 100%;
+  }
+
   .crisis-dock button {
     justify-content: center;
+  }
+
+  .event-log {
+    top: calc(var(--chrome-height) + 70px);
+    right: 7px;
+    left: 7px;
+    width: auto;
+    max-height: 155px;
   }
 
   .ticker-label {

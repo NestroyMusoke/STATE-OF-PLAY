@@ -51,8 +51,21 @@ export const consequenceResponseSchema: JsonSchema = {
         treasury: { type: 'number', minimum: -25, maximum: 25 },
         legitimacy: { type: 'number', minimum: -25, maximum: 25 },
         tension: { type: 'number', minimum: -25, maximum: 25 },
+        sovereignty: { type: 'number', minimum: -25, maximum: 25 },
+        morale: { type: 'number', minimum: -25, maximum: 25 },
+        reconstruction: { type: 'number', minimum: -25, maximum: 25 },
+        foreignSupport: { type: 'number', minimum: -25, maximum: 25 },
       },
-      required: ['approval', 'treasury', 'legitimacy', 'tension'],
+      required: [
+        'approval',
+        'treasury',
+        'legitimacy',
+        'tension',
+        'sovereignty',
+        'morale',
+        'reconstruction',
+        'foreignSupport',
+      ],
     },
     spawnedCrisis: {
       anyOf: [intelligenceReportSchema, { type: 'null' }],
@@ -106,6 +119,10 @@ export function isConsequenceResponse(
     isDelta(value.deltas.treasury) &&
     isDelta(value.deltas.legitimacy) &&
     isDelta(value.deltas.tension) &&
+    isDelta(value.deltas.sovereignty) &&
+    isDelta(value.deltas.morale) &&
+    isDelta(value.deltas.reconstruction) &&
+    isDelta(value.deltas.foreignSupport) &&
     (spawnedCrisis === undefined ||
       spawnedCrisis === null ||
       isIntelligenceReport(spawnedCrisis))

@@ -37,10 +37,18 @@ export type NationPromptContext = {
   advisors: [AdvisorPersona, AdvisorPersona]
 }
 
+export type BriefingPriorContext = {
+  sourceNationId: NationId
+  triggeringDecisionId: string
+  summary: string
+  causalityCallout: string
+}
+
 export type BriefingRequest = {
   crisis: Crisis
   perspective: NationPromptContext
   headlineId?: string
+  priorContext?: BriefingPriorContext
 }
 
 export type ChosenOption =
@@ -59,15 +67,33 @@ export type ConsequenceRequest = {
   headlineId?: string
 }
 
-export type ConsequenceResponse = {
-  narrative: string
-  deltas: {
+export type ConsequenceDeltas = {
     approval: number
     treasury: number
     legitimacy: number
     tension: number
-  }
+    sovereignty: number
+    morale: number
+    reconstruction: number
+    foreignSupport: number
+}
+
+export type ConsequenceResponse = {
+  narrative: string
+  deltas: ConsequenceDeltas
   spawnedCrisis?: IntelligenceReport
+}
+
+export type DecisionRecord = {
+  id: string
+  nationId: NationId
+  crisisId: string
+  crisisTitle: string
+  chosenOption: string
+  narrative: string
+  turn: number
+  timestamp: string
+  deltas: ConsequenceDeltas
 }
 
 export type Headline = {

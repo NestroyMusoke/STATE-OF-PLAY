@@ -178,9 +178,12 @@ export default async function handler(
   response.statusCode = 200
   response.setHeader('Content-Type', 'application/json; charset=utf-8')
   response.setHeader(
+    'X-State-Of-Play-AI-Mode',
+    process.env.OPENAI_API_KEY?.trim() ? 'live' : 'fallback',
+  )
+  response.setHeader(
     'Cache-Control',
     'public, s-maxage=3600, stale-while-revalidate=300',
   )
   response.end(JSON.stringify(headlines))
 }
-

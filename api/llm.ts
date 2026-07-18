@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { NATIONS } from '../src/game/nations'
 import type {
+  BriefingPriorContext,
   BriefingRequest,
   Crisis,
   IntelligenceReport,
@@ -53,12 +54,23 @@ function isPerspective(value: unknown): value is NationPromptContext {
   )
 }
 
+function isPriorContext(value: unknown): value is BriefingPriorContext {
+  return (
+    isRecord(value) &&
+    value.sourceNationId === 'united-states' &&
+    typeof value.triggeringDecisionId === 'string' &&
+    typeof value.summary === 'string' &&
+    typeof value.causalityCallout === 'string'
+  )
+}
+
 function isBriefingRequest(value: unknown): value is BriefingRequest {
   return (
     isRecord(value) &&
     isCrisis(value.crisis) &&
     isPerspective(value.perspective) &&
-    (value.headlineId === undefined || typeof value.headlineId === 'string')
+    (value.headlineId === undefined || typeof value.headlineId === 'string') &&
+    (value.priorContext === undefined || isPriorContext(value.priorContext))
   )
 }
 
@@ -77,11 +89,16 @@ function advisorsFor(nationId: NationId): IntelligenceReport['advisors'] {
   return [{ ...first }, { ...second }]
 }
 
-export function fallbackReport(nationId: NationId): IntelligenceReport {
+export function fallbackReport(
+  nationId: NationId,
+  priorContext?: BriefingPriorContext,
+): IntelligenceReport {
   if (nationId === 'venezuela') {
     return {
       briefing:
-        'From Caracas, the expanding United States role in earthquake recovery presents both immediate relief and a long-term sovereignty test. The interim government must secure reconstruction support without appearing to surrender national control.',
+        priorContext
+          ? `${priorContext.causalityCallout} The shared timeline records the following United States action: ${priorContext.summary} From Caracas, the resulting opening must now be balanced against public morale, reconstruction needs, and Venezuelan sovereignty.`
+          : 'From Caracas, the expanding United States role in earthquake recovery presents both immediate relief and a long-term sovereignty test. The interim government must secure reconstruction support without appearing to surrender national control.',
       threatAssessment:
         'HIGH — Public patience is limited, reconstruction capacity is strained, and every agreement with Washington will be judged against Venezuelan sovereignty.',
       options: [
@@ -156,6 +173,7 @@ export default async function handler(
     nation: nationId,
     crisisId: body.crisis.id,
     headlineId,
+    priorContext: body.priorContext ?? null,
   })
   const apiKey = process.env.OPENAI_API_KEY?.trim()
   const cached = await getCachedResponse<IntelligenceReport>(cacheKey, !!apiKey)
@@ -170,7 +188,7 @@ export default async function handler(
     return
   }
 
-  const fallback = fallbackReport(nationId)
+  const fallback = fallbackReport(nationId, body.priorContext)
   if (!apiKey) {
     await cacheResponse(cacheKey, fallback, 'fallback-missing-key')
     logApiPath('llm', {

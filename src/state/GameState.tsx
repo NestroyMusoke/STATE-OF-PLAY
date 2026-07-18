@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { getInitialMeters, NATIONS } from '../game/nations'
-import type { NationDefinition, NationId } from '../types'
+import type { DecisionRecord, NationDefinition, NationId } from '../types'
 
 export type NationWorldState = {
   turn: number
@@ -18,6 +18,8 @@ export type NationWorldState = {
 export type GameState = {
   activeNation: NationId
   nations: Record<NationId, NationWorldState>
+  history: DecisionRecord[]
+  appliedCrossNationDecisionIds: string[]
 }
 
 export type GameAction =
@@ -28,6 +30,12 @@ export type GameAction =
       nationId?: NationId
     }
   | { type: 'ADVANCE_TURN'; nationId?: NationId }
+  | { type: 'RECORD_DECISION'; decision: DecisionRecord }
+  | {
+      type: 'APPLY_CROSS_NATION_CALLBACK'
+      decisionId: string
+      deltas: Record<string, number>
+    }
   | { type: 'RESET' }
 
 const STORAGE_KEY = 'state-of-play.game-state.v2'
@@ -44,6 +52,8 @@ export const INITIAL_GAME_STATE: GameState = {
       meters: getInitialMeters('venezuela'),
     },
   },
+  history: [],
+  appliedCrossNationDecisionIds: [],
 }
 
 function clampMeter(value: number) {
@@ -96,10 +106,38 @@ function loadGameState(): GameState {
           saved.nations?.venezuela,
         ),
       },
+      history: Array.isArray(saved.history)
+        ? saved.history.filter(isDecisionRecord).slice(-50)
+        : [],
+      appliedCrossNationDecisionIds: Array.isArray(
+        saved.appliedCrossNationDecisionIds,
+      )
+        ? saved.appliedCrossNationDecisionIds
+            .filter((id): id is string => typeof id === 'string')
+            .slice(-50)
+        : [],
     }
   } catch {
     return INITIAL_GAME_STATE
   }
+}
+
+function isDecisionRecord(value: unknown): value is DecisionRecord {
+  if (typeof value !== 'object' || value === null) return false
+  const decision = value as Partial<DecisionRecord>
+  return (
+    typeof decision.id === 'string' &&
+    (decision.nationId === 'united-states' ||
+      decision.nationId === 'venezuela') &&
+    typeof decision.crisisId === 'string' &&
+    typeof decision.crisisTitle === 'string' &&
+    typeof decision.chosenOption === 'string' &&
+    typeof decision.narrative === 'string' &&
+    typeof decision.turn === 'number' &&
+    typeof decision.timestamp === 'string' &&
+    typeof decision.deltas === 'object' &&
+    decision.deltas !== null
+  )
 }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
@@ -136,6 +174,38 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           ...state.nations,
           [nationId]: { ...current, turn: current.turn + 1 },
         },
+      }
+    }
+
+    case 'RECORD_DECISION':
+      return {
+        ...state,
+        history: [...state.history, action.decision].slice(-50),
+      }
+
+    case 'APPLY_CROSS_NATION_CALLBACK': {
+      if (state.appliedCrossNationDecisionIds.includes(action.decisionId)) {
+        return state
+      }
+
+      const current = state.nations.venezuela
+      const meters = Object.fromEntries(
+        Object.entries(current.meters).map(([key, value]) => [
+          key,
+          clampMeter(value + (action.deltas[key] ?? 0)),
+        ]),
+      )
+
+      return {
+        ...state,
+        nations: {
+          ...state.nations,
+          venezuela: { ...current, meters },
+        },
+        appliedCrossNationDecisionIds: [
+          ...state.appliedCrossNationDecisionIds,
+          action.decisionId,
+        ].slice(-50),
       }
     }
 
@@ -193,4 +263,3 @@ export function useGameState() {
 
   return context
 }
-

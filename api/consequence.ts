@@ -84,13 +84,19 @@ export function fallbackConsequence(
       ? optionLabel(request.chosenOption)
       : 'the selected response'
   ).replace(/[.!?]+$/, '')
+  const isVenezuela = request?.perspective?.nationId === 'venezuela'
+
   return {
     narrative: `The government executes ${choice}. Initial reporting shows limited movement while agencies assess second-order effects.`,
     deltas: {
-      approval: 1,
-      treasury: -1,
-      legitimacy: 1,
+      approval: isVenezuela ? 0 : 1,
+      treasury: isVenezuela ? 0 : -1,
+      legitimacy: isVenezuela ? 0 : 1,
       tension: 0,
+      sovereignty: isVenezuela ? 1 : 0,
+      morale: isVenezuela ? 1 : 0,
+      reconstruction: isVenezuela ? -1 : 0,
+      foreignSupport: isVenezuela ? 1 : 0,
     },
   }
 }

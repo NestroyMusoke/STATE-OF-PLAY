@@ -61,6 +61,7 @@ export async function callLiveBriefing(
     instructions: [
       'You generate concise geopolitical crisis briefings for the browser strategy game STATE OF PLAY.',
       'Use only the supplied crisis and perspective context. Write from the named nation’s point of view.',
+      'When priorContext is supplied, explicitly connect the briefing, stakes, and options to those recorded decisions; preserve the stated causal direction.',
       'Return exactly three distinct policy options and exactly the two supplied advisor personas.',
       'Advisor lines should disagree constructively and remain one sentence each.',
       'Do not add facts, fields, markdown, or commentary outside the required JSON object.',
@@ -102,6 +103,8 @@ export async function callLiveConsequence(
       'You resolve one committed policy decision in the strategy game STATE OF PLAY.',
       'Ground the result only in the supplied crisis, chosen option, perspective, and world state.',
       'Write a concise consequence narrative and conservative meter deltas between -25 and 25.',
+      'For the United States, set sovereignty, morale, reconstruction, and foreignSupport to zero.',
+      'For Venezuela, set approval, treasury, legitimacy, and tension to zero.',
       'Use spawnedCrisis only when the decision directly creates an urgent follow-on event; otherwise return null.',
       'Do not add facts, fields, markdown, or commentary outside the required JSON object.',
     ].join(' '),
