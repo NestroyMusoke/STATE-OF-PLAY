@@ -1,10 +1,21 @@
+# Dependencies and build output
 node_modules
 dist
 .vercel
+
+# Secrets and local environment files
 .env
 .env.*
 !.env.example
 *.local
+*.key
+*.pem
+secrets/
+
+# Private recording materials
+DEMO_VIDEO_SCRIPT.md
+
+# Local logs and runtime state
 *.log
 /work/
 /.npm-cache/

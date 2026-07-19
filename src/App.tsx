@@ -1,14 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import L from 'leaflet'
-import { playCrisisStinger, setAmbientEnabled } from './audio'
+import {
+  playCrisisStinger,
+  playDecisionImpact,
+  setAmbientEnabled,
+} from './audio'
 import { IntelPanel } from './components/IntelPanel'
+import { LiveSourceFeed } from './components/LiveSourceFeed'
+import { OnboardingOverlay } from './components/OnboardingOverlay'
 import { PerspectiveTransition } from './components/PerspectiveTransition'
+import { RunOutcomeScreen } from './components/RunOutcomeScreen'
 import { TerminalChrome } from './components/TerminalChrome'
+import { TwoChairDebrief } from './components/TwoChairDebrief'
 import { TypewriterText } from './components/TypewriterText'
 import { createCrisisIcon } from './lib/crisisMarker'
 import { headlinesToCrises } from './lib/headlineCrisis'
 import { createNationPromptContext, NATIONS } from './game/nations'
+import { calculateLegacyScore } from './game/legacyScore'
+import { evaluateRunOutcome } from './game/runRules'
 import { useGameState } from './state/GameState'
 import seedHeadlineData from './data/seedHeadlines.json'
 import type {
@@ -27,10 +37,22 @@ const AMERICAS_CENTER: L.LatLngExpression = [12, -75]
 
 const SEED_HEADLINES = seedHeadlineData as Headline[]
 const ACTIVE_CRISIS_CAP = 3
+const ONBOARDING_KEY = 'state-of-play.onboarding-seen.v3'
 const SEED_CRISES = headlinesToCrises(SEED_HEADLINES).slice(
   0,
   ACTIVE_CRISIS_CAP,
 )
+
+function hasSeenOnboarding() {
+  try {
+    if (new URLSearchParams(window.location.search).get('demo') === '1') {
+      return false
+    }
+    return window.localStorage.getItem(ONBOARDING_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
 
 function safeFallbackConsequence(
   chosenOption: string,
@@ -96,9 +118,14 @@ function callbackEffect(chosenOption: string) {
 
 function buildUsPriorContext(
   history: DecisionRecord[],
+  crisisId: string,
 ): BriefingPriorContext | undefined {
   const usDecisions = history
-    .filter((decision) => decision.nationId === 'united-states')
+    .filter(
+      (decision) =>
+        decision.nationId === 'united-states' &&
+        decision.crisisId === crisisId,
+    )
     .slice(-6)
   const latestDecision = usDecisions.at(-1)
   if (!latestDecision) return undefined
@@ -129,6 +156,50 @@ type AmbientBlip = {
   y: number
 }
 
+type DecisionImpact = {
+  id: string
+  nationLabel: string
+  x: number
+  y: number
+}
+
+type WorldReaction = {
+  decisionId: string
+  nationId: NationId
+  crisisId: string
+  headline: string
+  narrative: string
+  chosenOption: string
+}
+
+function latestDecision(
+  history: DecisionRecord[],
+  nationId: NationId,
+  crisisId: string | undefined,
+) {
+  if (!crisisId) return undefined
+  return [...history]
+    .reverse()
+    .find(
+      (decision) =>
+        decision.nationId === nationId && decision.crisisId === crisisId,
+    )
+}
+
+function reactionHeadline(nationId: NationId) {
+  return nationId === 'united-states'
+    ? 'WASHINGTON ORDER RESHAPES THE CARACAS CRISIS'
+    : 'CARACAS ANSWERS WASHINGTON AS THE SHARED CRISIS SHIFTS'
+}
+
+function optionRisk(index: number) {
+  return [
+    'LOWER ESCALATION // POLITICAL RISK',
+    'HIGH LEVERAGE // HIGH ESCALATION',
+    'LOW COMMITMENT // UNCERTAIN CONTROL',
+  ][index] ?? 'OUTCOME UNCERTAIN'
+}
+
 function App() {
   const mapElement = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
@@ -137,7 +208,16 @@ function App() {
   const briefingRequestSequence = useRef(0)
   const reloadAfterNationSwitch = useRef(false)
   const perspectiveTimers = useRef<number[]>([])
+  const decisionImpactTimer = useRef<number | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
+  const [onboardingOpen, setOnboardingOpen] = useState(
+    () => !hasSeenOnboarding(),
+  )
+  const [onboardingMode, setOnboardingMode] = useState<'cold-open' | 'help'>(
+    'cold-open',
+  )
+  const [meterGuideDismissed, setMeterGuideDismissed] = useState(false)
+  const [optionGuideDismissed, setOptionGuideDismissed] = useState(false)
   const [ambientEnabled, setAmbientOn] = useState(false)
   const [reportState, setReportState] = useState<ReportState>({ status: 'idle' })
   const [transmissionComplete, setTransmissionComplete] = useState(false)
@@ -147,12 +227,60 @@ function App() {
   )
   const [ambientBlips, setAmbientBlips] = useState<AmbientBlip[]>([])
   const [crises, setCrises] = useState<Crisis[]>(SEED_CRISES)
+  const [newsFeed, setNewsFeed] = useState<Headline[]>(SEED_HEADLINES)
   const [selectedCrisis, setSelectedCrisis] = useState<Crisis | null>(null)
-  const [fallbackMode, setFallbackMode] = useState(true)
+  const [newsMode, setNewsMode] = useState<'live' | 'mixed' | 'seed'>('seed')
   const [transmittingOption, setTransmittingOption] = useState<string | null>(
     null,
   )
+  const [decisionImpact, setDecisionImpact] = useState<DecisionImpact | null>(
+    null,
+  )
+  const [worldReaction, setWorldReaction] = useState<WorldReaction | null>(null)
+  const [twoChairDebriefOpen, setTwoChairDebriefOpen] = useState(false)
   const { state, activeNation, activeWorldState, dispatch } = useGameState()
+  const runOutcome = evaluateRunOutcome(activeNation.id, activeWorldState)
+  const legacyResult = runOutcome
+    ? calculateLegacyScore(
+        activeNation.id,
+        activeWorldState.meters,
+        state.history,
+        runOutcome.status === 'won',
+      )
+    : null
+  const firstDecisionPending = !state.history.some(
+    (decision) => decision.nationId === activeNation.id,
+  )
+  const showMeterGuide =
+    firstDecisionPending &&
+    !onboardingOpen &&
+    !panelOpen &&
+    !meterGuideDismissed &&
+    !runOutcome
+  const showOptionGuide =
+    firstDecisionPending &&
+    !onboardingOpen &&
+    panelOpen &&
+    transmissionComplete &&
+    !optionGuideDismissed &&
+    !runOutcome
+  const selectedHeadline =
+    newsFeed.find((headline) => headline.id === selectedCrisis?.id) ?? newsFeed[0]
+  const usDecisionForCrisis = latestDecision(
+    state.history,
+    'united-states',
+    selectedCrisis?.id,
+  )
+  const venezuelaDecisionForCrisis = latestDecision(
+    state.history,
+    'venezuela',
+    selectedCrisis?.id,
+  )
+  const activeDecisionForCrisis = latestDecision(
+    state.history,
+    activeNation.id,
+    selectedCrisis?.id,
+  )
 
   const loadBriefing = useCallback((crisis: Crisis) => {
     const requestSequence = ++briefingRequestSequence.current
@@ -175,7 +303,7 @@ function App() {
       ),
       priorContext:
         activeNation.id === 'venezuela'
-          ? buildUsPriorContext(state.history)
+          ? buildUsPriorContext(state.history, crisis.id)
           : undefined,
     }
 
@@ -199,6 +327,8 @@ function App() {
   }, [activeNation.id, activeWorldState.meters, state.history])
 
   const selectCrisis = useCallback((crisis: Crisis) => {
+    setWorldReaction(null)
+    setTwoChairDebriefOpen(false)
     map.current?.flyTo(crisis.coordinates, 6, { duration: 1.25 })
     playCrisisStinger(crisis.type)
     setSelectedCrisis(crisis)
@@ -219,7 +349,7 @@ function App() {
     })
 
     L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
       { subdomains: 'abcd', maxZoom: 20 },
     ).addTo(leafletMap)
 
@@ -260,21 +390,30 @@ function App() {
     void fetch('/api/news')
       .then(async (response) => {
         if (!response.ok) throw new Error('Headline request failed')
-        const aiMode = response.headers.get('X-State-Of-Play-AI-Mode')
+        const newsMode = response.headers.get('X-State-Of-Play-News-Mode')
         const headlines = (await response.json()) as Headline[]
         if (!Array.isArray(headlines) || headlines.length === 0) {
           throw new Error('Headline response was empty')
         }
         if (!cancelled) {
-          setFallbackMode(aiMode !== 'live')
+          const articleHeadlines = headlines.filter(
+            (headline) => headline.kind !== 'video',
+          )
+          setNewsMode(
+            newsMode === 'live' || newsMode === 'mixed' ? newsMode : 'seed',
+          )
+          setNewsFeed(headlines)
           setCrises(
-            headlinesToCrises(headlines).slice(0, ACTIVE_CRISIS_CAP),
+            headlinesToCrises(
+              articleHeadlines.length > 0 ? articleHeadlines : SEED_HEADLINES,
+            ).slice(0, ACTIVE_CRISIS_CAP),
           )
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setFallbackMode(true)
+          setNewsMode('seed')
+          setNewsFeed(SEED_HEADLINES)
           setCrises(SEED_CRISES)
         }
       })
@@ -311,6 +450,9 @@ function App() {
     () => () => {
       setAmbientEnabled(false)
       perspectiveTimers.current.forEach((timer) => window.clearTimeout(timer))
+      if (decisionImpactTimer.current !== null) {
+        window.clearTimeout(decisionImpactTimer.current)
+      }
     },
     [],
   )
@@ -338,7 +480,12 @@ function App() {
   const completeTransmission = useCallback(() => setTransmissionComplete(true), [])
 
   async function executeDecision(chosenOption: string) {
-    if (!selectedCrisis || transmittingOption) return
+    if (
+      !selectedCrisis ||
+      transmittingOption ||
+      runOutcome ||
+      activeDecisionForCrisis
+    ) return
 
     setTransmittingOption(chosenOption)
     const perspective = createNationPromptContext(
@@ -398,6 +545,26 @@ function App() {
       deltas: consequence.deltas,
     }
 
+    const leafletMap = map.current
+    const impactPoint = leafletMap?.latLngToContainerPoint(
+      L.latLng(selectedCrisis.coordinates[0], selectedCrisis.coordinates[1]),
+    )
+    const mapSize = leafletMap?.getSize()
+    setDecisionImpact({
+      id: decisionId,
+      nationLabel: activeNation.shortName,
+      x: impactPoint && mapSize ? (impactPoint.x / mapSize.x) * 100 : 50,
+      y: impactPoint && mapSize ? (impactPoint.y / mapSize.y) * 100 : 52,
+    })
+    playDecisionImpact()
+    if (decisionImpactTimer.current !== null) {
+      window.clearTimeout(decisionImpactTimer.current)
+    }
+    decisionImpactTimer.current = window.setTimeout(() => {
+      setDecisionImpact(null)
+      decisionImpactTimer.current = null
+    }, 1_650)
+
     dispatch({
       type: 'APPLY_DELTAS',
       nationId: activeNation.id,
@@ -405,6 +572,14 @@ function App() {
     })
     dispatch({ type: 'ADVANCE_TURN', nationId: activeNation.id })
     dispatch({ type: 'RECORD_DECISION', decision })
+    setWorldReaction({
+      decisionId,
+      nationId: activeNation.id,
+      crisisId: selectedCrisis.id,
+      headline: reactionHeadline(activeNation.id),
+      narrative: consequence.narrative,
+      chosenOption,
+    })
 
     if (consequence.spawnedCrisis) {
       const spawnedReport = consequence.spawnedCrisis
@@ -431,11 +606,29 @@ function App() {
     setAmbientEnabled(next)
   }
 
-  function switchPerspective() {
+  function closeOnboarding() {
+    try {
+      window.localStorage.setItem(ONBOARDING_KEY, 'true')
+    } catch {
+      // The intro can still close when storage is unavailable.
+    }
+    setOnboardingOpen(false)
+    if (onboardingMode === 'cold-open') {
+      const openingCrisis = crises[0]
+      if (openingCrisis) {
+        window.setTimeout(() => selectCrisis(openingCrisis), 220)
+      }
+    }
+  }
+
+  function switchPerspective(explicitTarget?: NationId) {
     if (perspectiveWipe || transmittingOption) return
 
     const targetNationId: NationId =
-      activeNation.id === 'united-states' ? 'venezuela' : 'united-states'
+      explicitTarget ??
+      (activeNation.id === 'united-states' ? 'venezuela' : 'united-states')
+    if (targetNationId === activeNation.id) return
+    setWorldReaction(null)
     setPerspectiveTarget(targetNationId)
     setPerspectiveWipe(true)
 
@@ -463,12 +656,39 @@ function App() {
     perspectiveTimers.current = [switchTimer, closeTimer]
   }
 
+  function restartTimeline() {
+    perspectiveTimers.current.forEach((timer) => window.clearTimeout(timer))
+    perspectiveTimers.current = []
+    briefingRequestSequence.current += 1
+    preloadedReports.current.clear()
+    dispatch({ type: 'RESET' })
+    setPanelOpen(false)
+    setSelectedCrisis(null)
+    setReportState({ status: 'idle' })
+    setTransmissionComplete(false)
+    setTransmittingOption(null)
+    setPerspectiveWipe(false)
+    setPerspectiveTarget(null)
+    setDecisionImpact(null)
+    setWorldReaction(null)
+    setTwoChairDebriefOpen(false)
+    if (decisionImpactTimer.current !== null) {
+      window.clearTimeout(decisionImpactTimer.current)
+      decisionImpactTimer.current = null
+    }
+    setMeterGuideDismissed(false)
+    setOptionGuideDismissed(false)
+    setOnboardingMode('cold-open')
+    setOnboardingOpen(true)
+    map.current?.flyTo(AMERICAS_CENTER, 3.25, { duration: 1 })
+  }
+
   const nextNation =
     activeNation.id === 'united-states' ? NATIONS.venezuela : NATIONS['united-states']
   const targetNation = perspectiveTarget ? NATIONS[perspectiveTarget] : null
   const causalityContext =
-    activeNation.id === 'venezuela'
-      ? buildUsPriorContext(state.history)
+    activeNation.id === 'venezuela' && selectedCrisis
+      ? buildUsPriorContext(state.history, selectedCrisis.id)
       : undefined
 
   return (
@@ -490,23 +710,64 @@ function App() {
         ))}
       </div>
 
+      <AnimatePresence>
+        {decisionImpact && (
+          <m.div
+            className="decision-impact-layer"
+            key={decisionImpact.id}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            aria-hidden="true"
+          >
+            <span
+              className="decision-map-ripple"
+              style={{ left: `${decisionImpact.x}%`, top: `${decisionImpact.y}%` }}
+            >
+              <i />
+              <i />
+              <i />
+            </span>
+            <m.div
+              className="executed-stamp"
+              initial={{ opacity: 0, scale: 2.4, rotate: -16 }}
+              animate={{ opacity: [0, 1, 1, 0], scale: [2.4, 0.92, 1, 1], rotate: -7 }}
+              transition={{ duration: 1.5, times: [0, 0.18, 0.72, 1] }}
+            >
+              <span>{decisionImpact.nationLabel} // ORDER</span>
+              EXECUTED
+            </m.div>
+          </m.div>
+        )}
+      </AnimatePresence>
+
       <TerminalChrome
         ambientEnabled={ambientEnabled}
+        headlines={newsFeed}
+        showMeterGuide={showMeterGuide}
         onAmbientToggle={toggleAmbient}
+        onDismissMeterGuide={() => setMeterGuideDismissed(true)}
+        onHowToPlay={() => {
+          setOnboardingMode('help')
+          setOnboardingOpen(true)
+        }}
       />
 
+      <LiveSourceFeed headlines={newsFeed} />
+
       <div className="map-letterhead" aria-hidden="true">
-        <span>STATE OF PLAY</span>
+        <span>THE WORLD IS MOVING</span>
+        <strong>{newsFeed[0]?.title ?? 'A NEW CRISIS IS DEVELOPING'}</strong>
         <small>
-          {activeNation.seat.toUpperCase()} COMMAND //{' '}
-          {activeNation.name.toUpperCase()}
+          YOU ARE IN {activeNation.seat.toUpperCase()} // CHOOSE A CRISIS AND
+          MAKE YOUR MOVE
         </small>
       </div>
 
       <AnimatePresence>
         {panelOpen && (
           <IntelPanel
-            eyebrow={`${activeNation.shortName} // PRIORITY INTELLIGENCE`}
+            eyebrow={`${activeNation.shortName} // YOUR BRIEFING`}
             mode="briefing"
             onClose={closePanel}
             title={selectedCrisis?.title ?? 'INTELLIGENCE REPORT'}
@@ -526,6 +787,15 @@ function App() {
 
             {reportState.status === 'ready' && (
               <div className="report-content">
+                <aside className="real-event-source">
+                  <span>
+                    REAL EVENT // {selectedHeadline.source.toUpperCase()} //{' '}
+                    {selectedHeadline.publishedAt.slice(0, 10)}
+                  </span>
+                  <a href={selectedHeadline.url} target="_blank" rel="noreferrer">
+                    VERIFY SOURCE ↗
+                  </a>
+                </aside>
                 {causalityContext && (
                   <aside className="causality-callout">
                     <span>CROSS-NATION CALLBACK // CONFIRMED</span>
@@ -533,7 +803,7 @@ function App() {
                   </aside>
                 )}
                 <section>
-                  <h3>01 // Situation briefing</h3>
+                  <h3>01 // What’s happening</h3>
                   <TypewriterText
                     text={reportState.report.briefing}
                     onComplete={completeTransmission}
@@ -548,11 +818,11 @@ function App() {
                       transition={{ duration: 0.28 }}
                     >
                       <section>
-                        <h3>02 // Threat assessment</h3>
+                        <h3>02 // What’s at stake</h3>
                         <p>{reportState.report.threatAssessment}</p>
                       </section>
                       <section>
-                        <h3>03 // Advisory channel</h3>
+                        <h3>03 // Your advisors disagree</h3>
                         <div className="advisor-grid">
                           {reportState.report.advisors.map((advisor) => (
                             <article className="advisor-line" key={advisor.role}>
@@ -566,30 +836,79 @@ function App() {
                         </div>
                       </section>
                       <section>
-                        <h3>04 // Response vectors</h3>
-                        <ol className="decision-options">
-                          {reportState.report.options.map((option, index) => (
-                            <li key={option}>
+                        <h3>04 // Make your move</h3>
+                        {showOptionGuide && (
+                          <m.aside
+                            className="guided-tip guided-tip--options"
+                            initial={{ opacity: 0, x: 8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                          >
+                            <span>GUIDE // COMMIT A DECISION</span>
+                            Each response changes the meters and advances the
+                            term. There is no undo.
+                            <button
+                              type="button"
+                              onClick={() => setOptionGuideDismissed(true)}
+                            >
+                              UNDERSTOOD
+                            </button>
+                          </m.aside>
+                        )}
+                        {activeDecisionForCrisis ? (
+                          <aside className="order-committed">
+                            <span>{activeNation.shortName} ORDER COMMITTED</span>
+                            <strong>{activeDecisionForCrisis.chosenOption}</strong>
+                            <p>{activeDecisionForCrisis.narrative}</p>
+                            {activeNation.id === 'united-states' ? (
                               <button
                                 type="button"
-                                className={
-                                  transmittingOption === option
-                                    ? 'decision-option--transmitting'
-                                    : undefined
-                                }
-                                disabled={transmittingOption !== null}
-                                onClick={() => void executeDecision(option)}
+                                onClick={() => switchPerspective('venezuela')}
                               >
-                                <span>
-                                  VECTOR {String(index + 1).padStart(2, '0')}
-                                </span>
-                                {transmittingOption === option
-                                  ? 'TRANSMITTING…'
-                                  : option}
+                                SEE THIS CRISIS FROM CARACAS →
                               </button>
-                            </li>
-                          ))}
-                        </ol>
+                            ) : usDecisionForCrisis ? (
+                              <button
+                                type="button"
+                                onClick={() => setTwoChairDebriefOpen(true)}
+                              >
+                                OPEN TWO-CHAIR DEBRIEF →
+                              </button>
+                            ) : null}
+                          </aside>
+                        ) : (
+                          <ol className="decision-options">
+                            {reportState.report.options.map((option, index) => (
+                              <li key={option}>
+                                <button
+                                  type="button"
+                                  className={
+                                    transmittingOption === option
+                                      ? 'decision-option--transmitting'
+                                      : undefined
+                                  }
+                                  disabled={
+                                    transmittingOption !== null || runOutcome !== null
+                                  }
+                                  onClick={() => void executeDecision(option)}
+                                >
+                                  <span>
+                                    {index === 0
+                                      ? 'DE-ESCALATE'
+                                      : index === 1
+                                        ? 'APPLY LEVERAGE'
+                                        : 'HOLD POSITION'}
+                                  </span>
+                                  <strong>
+                                    {transmittingOption === option
+                                      ? 'TRANSMITTING…'
+                                      : option}
+                                  </strong>
+                                  <small>{optionRisk(index)}</small>
+                                </button>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
                       </section>
                     </m.div>
                   )}
@@ -597,6 +916,57 @@ function App() {
               </div>
             )}
           </IntelPanel>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {worldReaction && selectedCrisis && (
+          <m.aside
+            className="world-reaction hud-frame"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="world-reaction-title"
+            initial={{ opacity: 0, y: 34, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.97 }}
+            transition={{ delay: 1.05, type: 'spring', stiffness: 190, damping: 22 }}
+          >
+            <span className="world-reaction__eyebrow">
+              WORLD REACTION // NEW TIMELINE ENTRY
+            </span>
+            <h2 id="world-reaction-title">{worldReaction.headline}</h2>
+            <div className="world-reaction__order">
+              <span>{worldReaction.nationId === 'united-states' ? 'WASHINGTON' : 'CARACAS'} ORDER</span>
+              <strong>{worldReaction.chosenOption}</strong>
+            </div>
+            <p>{worldReaction.narrative}</p>
+            <small>
+              REAL EVENT SOURCE // {selectedHeadline.source.toUpperCase()} // SIMULATED CONSEQUENCE
+            </small>
+            <div className="world-reaction__actions">
+              {worldReaction.nationId === 'united-states' ? (
+                <button
+                  type="button"
+                  onClick={() => switchPerspective('venezuela')}
+                >
+                  SEE THIS CRISIS FROM CARACAS →
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorldReaction(null)
+                    setTwoChairDebriefOpen(true)
+                  }}
+                >
+                  COMPARE BOTH CHAIRS →
+                </button>
+              )}
+              <button type="button" onClick={() => setWorldReaction(null)}>
+                CONTINUE ON MAP
+              </button>
+            </div>
+          </m.aside>
         )}
       </AnimatePresence>
 
@@ -608,7 +978,7 @@ function App() {
         transition={{ delay: 0.18, duration: 0.34 }}
       >
         <span className="dock-label">
-          ACTIVE CRISES // {String(crises.length).padStart(2, '0')}
+          CHOOSE A CRISIS // {String(crises.length).padStart(2, '0')}
         </span>
         <div className="crisis-dock-list">
           {crises.map((crisis) => (
@@ -620,14 +990,14 @@ function App() {
               <i className={`dock-threat dock-threat--${crisis.type}`} />
               <span>
                 <strong>{crisis.location}</strong>
-                {crisis.type.toUpperCase()} // PRIORITY
+                {crisis.type.toUpperCase()} // OPEN THIS STORY
               </span>
             </button>
           ))}
         </div>
       </m.nav>
 
-      <m.aside
+      {state.history.length > 0 && <m.aside
         className="event-log hud-frame"
         aria-label="Executed decision log"
         aria-live="polite"
@@ -635,7 +1005,7 @@ function App() {
         animate={{ opacity: 1, x: 0 }}
       >
         <div className="event-log-header">
-          <span>EXECUTED ORDERS</span>
+          <span>WHAT YOU CHANGED</span>
           <span>{String(state.history.length).padStart(2, '0')}</span>
         </div>
         {state.history.length === 0 ? (
@@ -662,11 +1032,13 @@ function App() {
               ))}
           </ol>
         )}
-      </m.aside>
+      </m.aside>}
 
-      {fallbackMode && (
+      {newsMode !== 'live' && (
         <div className="fallback-mode-badge" role="status">
-          FALLBACK MODE // SEED DATA
+          {newsMode === 'mixed'
+            ? 'HYBRID MODE // LIVE VIDEO + SEED CRISES'
+            : 'FALLBACK MODE // SEED DATA'}
         </div>
       )}
 
@@ -674,7 +1046,7 @@ function App() {
         type="button"
         className="perspective-test"
         disabled={perspectiveWipe || transmittingOption !== null}
-        onClick={switchPerspective}
+        onClick={() => switchPerspective()}
       >
         SWITCH PERSPECTIVE // {nextNation.shortName}
       </button>
@@ -692,6 +1064,45 @@ function App() {
         {perspectiveWipe && targetNation && (
           <PerspectiveTransition
             targetLetterhead={`${targetNation.seat.toUpperCase()} // ${targetNation.name.toUpperCase()}`}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {runOutcome && legacyResult && !perspectiveWipe && (
+          <RunOutcomeScreen
+            nation={activeNation}
+            outcome={runOutcome}
+            legacy={legacyResult}
+            onRestart={restartTimeline}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {twoChairDebriefOpen &&
+          selectedCrisis &&
+          usDecisionForCrisis &&
+          venezuelaDecisionForCrisis && (
+            <TwoChairDebrief
+              crisis={selectedCrisis}
+              headline={selectedHeadline}
+              unitedStatesDecision={usDecisionForCrisis}
+              unitedStatesMeters={state.nations['united-states'].meters}
+              venezuelaDecision={venezuelaDecisionForCrisis}
+              venezuelaMeters={state.nations.venezuela.meters}
+              onClose={() => setTwoChairDebriefOpen(false)}
+              onRestart={restartTimeline}
+            />
+          )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {onboardingOpen && (
+          <OnboardingOverlay
+            headline={newsFeed[0]}
+            mode={onboardingMode}
+            onClose={closeOnboarding}
           />
         )}
       </AnimatePresence>

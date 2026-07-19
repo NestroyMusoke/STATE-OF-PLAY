@@ -16,6 +16,7 @@ export type AdvisorPersona = {
 export type NationMeterDefinition = {
   key: string
   label: string
+  description: string
   tone: 'alert' | 'warning' | 'signal'
   initial: number
 }
@@ -102,6 +103,9 @@ export type Headline = {
   source: string
   url: string
   publishedAt: string
+  kind?: 'article' | 'video'
+  videoId?: string
+  thumbnailUrl?: string
 }
 
 export type CrisisType =

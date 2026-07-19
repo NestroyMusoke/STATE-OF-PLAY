@@ -41,15 +41,18 @@ function utcDate() {
 }
 
 function runtimeFile() {
-  if (process.env.OPENAI_RUNTIME_FILE?.trim()) {
-    return resolve(process.env.OPENAI_RUNTIME_FILE.trim())
+  const configuredFile =
+    process.env.OPENROUTER_RUNTIME_FILE?.trim() ||
+    process.env.OPENAI_RUNTIME_FILE?.trim()
+  if (configuredFile) {
+    return resolve(configuredFile)
   }
 
   if (process.env.VERCEL) {
-    return join(tmpdir(), 'state-of-play-openai-runtime.json')
+    return join(tmpdir(), 'state-of-play-ai-runtime.json')
   }
 
-  return resolve(process.cwd(), '.state-of-play', 'openai-runtime.json')
+  return resolve(process.cwd(), '.state-of-play', 'ai-runtime.json')
 }
 
 function isRuntimeState(value: unknown): value is RuntimeState {
@@ -91,7 +94,7 @@ async function persistState(current: RuntimeState) {
     if (!persistenceWarningLogged) {
       persistenceWarningLogged = true
       console.warn(
-        '[openai-runtime] Persistent cache unavailable; using in-memory cache for this process.',
+        '[ai-runtime] Persistent cache unavailable; using in-memory cache for this process.',
         error,
       )
     }
@@ -131,7 +134,9 @@ export function createCacheKey(parts: Record<string, unknown>) {
 
 export function configuredDailyLimit() {
   const requested = Number.parseInt(
-    process.env.OPENAI_DAILY_CALL_LIMIT ?? `${HARD_DAILY_LIMIT}`,
+    process.env.OPENROUTER_DAILY_CALL_LIMIT ??
+      process.env.OPENAI_DAILY_CALL_LIMIT ??
+      `${HARD_DAILY_LIMIT}`,
     10,
   )
   if (!Number.isFinite(requested) || requested < 1) return HARD_DAILY_LIMIT
@@ -175,7 +180,7 @@ export async function cacheResponse(
   })
 }
 
-export async function reserveOpenAICall() {
+export async function reserveAiCall() {
   return enqueueMutation(async () => {
     const current = await loadState()
     const today = utcDate()

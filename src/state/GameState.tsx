@@ -87,6 +87,9 @@ function loadGameState(): GameState {
   if (typeof window === 'undefined') return INITIAL_GAME_STATE
 
   try {
+    if (new URLSearchParams(window.location.search).get('demo') === '1') {
+      return INITIAL_GAME_STATE
+    }
     const rawState = window.localStorage.getItem(STORAGE_KEY)
     if (!rawState) return INITIAL_GAME_STATE
 

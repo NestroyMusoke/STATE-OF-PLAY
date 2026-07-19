@@ -36,8 +36,8 @@ export function IntelPanel({
       aria-label={`${mode} panel`}
     >
       <div className="panel-function-row">
-        <span>SEC-CH // 07</span>
-        <span>{mode.toUpperCase()}</span>
+        <span>LIVE STORY // 07</span>
+        <span>{mode === 'briefing' ? 'YOUR MOVE' : mode.toUpperCase()}</span>
       </div>
       <div className="panel-header">
         <div>
@@ -54,7 +54,7 @@ export function IntelPanel({
       <div className="coordinate-strip">
         <span>LAT 10.480°N</span>
         <span>LNG 66.900°W</span>
-        <span>SITREP {timestamp}Z</span>
+        <span>UPDATED {timestamp}Z</span>
       </div>
       <div className="panel-body">{children}</div>
     </m.aside>

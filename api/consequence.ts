@@ -17,7 +17,7 @@ import {
   createCacheKey,
   getCachedResponse,
   logApiPath,
-  reserveOpenAICall,
+  reserveAiCall,
 } from './_shared/runtime'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -149,7 +149,7 @@ export default async function handler(
     headlineId,
     chosenOption: choice,
   })
-  const apiKey = process.env.OPENAI_API_KEY?.trim()
+  const apiKey = process.env.OPENROUTER_API_KEY?.trim()
   const cached = await getCachedResponse<ConsequenceResponse>(cacheKey, !!apiKey)
 
   if (cached && isConsequenceResponse(cached.value)) {
@@ -174,7 +174,7 @@ export default async function handler(
     return
   }
 
-  const budget = await reserveOpenAICall()
+  const budget = await reserveAiCall()
   if (!budget.allowed) {
     await cacheResponse(cacheKey, fallback, 'fallback-daily-limit')
     logApiPath('consequence', {
@@ -209,7 +209,7 @@ export default async function handler(
       key: cacheKey,
     })
     console.error(
-      '[consequence] OpenAI call failed; serving deterministic fallback.',
+      '[consequence] OpenRouter call failed; serving deterministic fallback.',
       error,
     )
     sendConsequence(response, fallback)

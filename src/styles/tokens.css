@@ -4,18 +4,21 @@
   --color-alert: #ff3b30;
   --color-warning: #ffb000;
   --color-signal: #00e5ff;
-  --color-gain: #35f28a;
+  --color-gain: #38e07b;
   --color-text: #e8edf2;
 
   --font-data: 'IBM Plex Mono', monospace;
   --font-display: 'Saira Condensed', sans-serif;
 
   --hud-notch: 14px;
-  --hud-border: color-mix(in srgb, var(--color-signal) 34%, transparent);
-  --hud-border-dim: color-mix(in srgb, var(--color-text) 14%, transparent);
-  --hud-glow: color-mix(in srgb, var(--color-signal) 14%, transparent);
+  --hud-border: color-mix(in srgb, var(--color-signal) 42%, transparent);
+  --hud-border-dim: color-mix(in srgb, var(--color-text) 16%, transparent);
+  --hud-glow: color-mix(in srgb, var(--color-signal) 18%, transparent);
   --top-bar-height: 58px;
   --meter-bar-height: 48px;
-  --chrome-height: calc(var(--top-bar-height) + var(--meter-bar-height));
+  --objective-bar-height: 30px;
+  --chrome-height: calc(
+    var(--top-bar-height) + var(--meter-bar-height) + var(--objective-bar-height)
+  );
   --ticker-height: 30px;
 }

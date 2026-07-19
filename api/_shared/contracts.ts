@@ -135,7 +135,7 @@ export function parseStructuredOutput<T>(
 ): T {
   const parsed: unknown = JSON.parse(outputText)
   if (!validator(parsed)) {
-    throw new Error('OpenAI returned JSON that did not match the required schema')
+    throw new Error('AI provider returned JSON that did not match the required schema')
   }
   return parsed
 }

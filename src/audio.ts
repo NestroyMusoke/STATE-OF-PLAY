@@ -7,6 +7,13 @@ const staticBlip = new Howl({
   preload: true,
 })
 
+const decisionImpact = new Howl({
+  src: ['/audio/static-blip.wav'],
+  volume: 0.22,
+  rate: 0.58,
+  preload: true,
+})
+
 const ambientComms = new Howl({
   src: ['/audio/ambient-comms.wav'],
   volume: 0.16,
@@ -30,6 +37,11 @@ export function playCrisisStinger(type: CrisisType) {
   stingers[type].play()
 }
 
+export function playDecisionImpact() {
+  decisionImpact.stop()
+  decisionImpact.play()
+}
+
 export function setAmbientEnabled(enabled: boolean) {
   if (enabled) {
     ambientComms.play()
@@ -42,4 +54,3 @@ export function setAmbientEnabled(enabled: boolean) {
 export function setGlobalAudioMuted(muted: boolean) {
   Howler.mute(muted)
 }
-

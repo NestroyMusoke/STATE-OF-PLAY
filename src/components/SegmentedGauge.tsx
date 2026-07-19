@@ -3,6 +3,7 @@ import { useCountUp } from 'react-countup'
 
 type SegmentedGaugeProps = {
   compact?: boolean
+  description: string
   label: string
   tone: 'alert' | 'warning' | 'signal'
   value: number
@@ -12,6 +13,7 @@ const SEGMENTS = 12
 
 export function SegmentedGauge({
   compact = false,
+  description,
   label,
   tone,
   value,
@@ -21,6 +23,7 @@ export function SegmentedGauge({
   const [changeDirection, setChangeDirection] = useState<
     'gain' | 'loss' | null
   >(null)
+  const [delta, setDelta] = useState(0)
 
   useCountUp({
     // react-countup's published ref type predates React 19's nullable RefObject generic.
@@ -34,8 +37,13 @@ export function SegmentedGauge({
   useEffect(() => {
     if (previousValue.current === value) return
 
-    setChangeDirection(value > previousValue.current ? 'gain' : 'loss')
-    const timeout = window.setTimeout(() => setChangeDirection(null), 560)
+    const change = value - previousValue.current
+    setDelta(change)
+    setChangeDirection(change > 0 ? 'gain' : 'loss')
+    const timeout = window.setTimeout(() => {
+      setChangeDirection(null)
+      setDelta(0)
+    }, 1_050)
     previousValue.current = value
     return () => window.clearTimeout(timeout)
   }, [value])
@@ -47,6 +55,8 @@ export function SegmentedGauge({
       className={`segmented-gauge gauge--${tone}${compact ? ' segmented-gauge--compact' : ''}${
         changeDirection ? ` gauge--change gauge--${changeDirection}` : ''
       }`}
+      tabIndex={0}
+      aria-label={`${label}: ${value}%. ${description}`}
     >
       <div className="gauge-meta">
         <span>{label}</span>
@@ -60,6 +70,14 @@ export function SegmentedGauge({
           />
         ))}
       </div>
+      <span className="gauge-tooltip" role="tooltip">
+        {description}
+      </span>
+      {delta !== 0 && (
+        <span className="gauge-flying-delta" aria-hidden="true">
+          {delta > 0 ? '+' : ''}{delta}
+        </span>
+      )}
     </div>
   )
 }

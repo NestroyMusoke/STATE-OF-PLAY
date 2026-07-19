@@ -5,11 +5,11 @@ import {
   briefingModel,
   callLiveBriefing,
 } from '../api/_shared/generation'
-import { logApiPath, reserveOpenAICall } from '../api/_shared/runtime'
+import { logApiPath, reserveAiCall } from '../api/_shared/runtime'
 
 if (existsSync('.env')) loadEnvFile('.env')
 
-const apiKey = process.env.OPENAI_API_KEY?.trim()
+const apiKey = process.env.OPENROUTER_API_KEY?.trim()
 
 if (!apiKey) {
   logApiPath('test:api', {
@@ -18,12 +18,12 @@ if (!apiKey) {
     requests: 0,
   })
   console.info(
-    '[test:api] Add OPENAI_API_KEY to .env, then rerun this command. No API request was sent.',
+    '[test:api] Add OPENROUTER_API_KEY to .env, then rerun this command. No API request was sent.',
   )
   process.exit(0)
 }
 
-const budget = await reserveOpenAICall()
+const budget = await reserveAiCall()
 if (!budget.allowed) {
   logApiPath('test:api', {
     path: 'blocked',
@@ -32,7 +32,7 @@ if (!budget.allowed) {
     count: budget.count,
     limit: budget.limit,
   })
-  throw new Error('Daily OpenAI call ceiling reached; no test request was sent.')
+  throw new Error('Daily OpenRouter call ceiling reached; no test request was sent.')
 }
 
 const request: BriefingRequest = {
