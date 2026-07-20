@@ -146,7 +146,7 @@ The server supports two providers without exposing credentials to the browser:
 | Both keys plus `AI_PROVIDER=openrouter` | OpenRouter is forced |
 | No key or provider failure | Deterministic fallback |
 
-Briefing and consequence responses are cached by provider, model, nation, crisis, headline, and decision where applicable. Locally, that cache is written to `.state-of-play`. On Vercel, it is a best-effort cache in temporary function storage and survives only while that function instance remains available. Live calls are also protected by a per-instance daily ceiling of 200 calls or fewer.
+Briefing and consequence responses are cached by provider, model, nation, crisis, headline, and decision where applicable. The serverless cache is held in memory and survives only while that function instance remains available. Live calls are also protected by a per-instance daily ceiling of 200 calls or fewer.
 
 ## Resilience is part of the design
 
@@ -321,7 +321,7 @@ vercel.json             Vite and serverless deployment configuration
 
 ## Current scope
 
-This hackathon MVP focuses on one real-world relationship and one complete playable loop. It is not yet a generalized scenario-authoring platform, a validated classroom intervention, a real-time multiplayer game, or a predictive policy model. Its file-backed AI cache and budget counter are not globally durable across Vercel function instances. A production release should move both to a shared store such as Vercel KV, Redis, or a database. These are future directions and engineering requirements, not claims about the current build.
+This hackathon MVP focuses on one real-world relationship and one complete playable loop. It is not yet a generalized scenario-authoring platform, a validated classroom intervention, a real-time multiplayer game, or a predictive policy model. Its in-memory AI cache and budget counter are not globally durable across Vercel function instances. A production release should move both to a shared store such as Vercel KV, Redis, or a database. These are future directions and engineering requirements, not claims about the current build.
 
 ## License
 

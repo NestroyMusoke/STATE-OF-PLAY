@@ -1,7 +1,4 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
 
 export type CacheSource =
   | 'live'
@@ -31,74 +28,15 @@ const EMPTY_STATE: RuntimeState = {
   dailyCalls: { date: '', count: 0 },
 }
 
-let state: RuntimeState | null = null
-let loadPromise: Promise<RuntimeState> | null = null
+const state: RuntimeState = structuredClone(EMPTY_STATE)
 let mutationQueue: Promise<unknown> = Promise.resolve()
-let persistenceWarningLogged = false
 
 function utcDate() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function runtimeFile() {
-  const configuredFile =
-    process.env.OPENROUTER_RUNTIME_FILE?.trim() ||
-    process.env.OPENAI_RUNTIME_FILE?.trim()
-  if (configuredFile) {
-    return resolve(configuredFile)
-  }
-
-  if (process.env.VERCEL) {
-    return join(tmpdir(), 'state-of-play-ai-runtime.json')
-  }
-
-  return resolve(process.cwd(), '.state-of-play', 'ai-runtime.json')
-}
-
-function isRuntimeState(value: unknown): value is RuntimeState {
-  if (typeof value !== 'object' || value === null) return false
-  const candidate = value as Partial<RuntimeState>
-  return (
-    candidate.version === 1 &&
-    typeof candidate.responses === 'object' &&
-    candidate.responses !== null &&
-    typeof candidate.dailyCalls?.date === 'string' &&
-    typeof candidate.dailyCalls?.count === 'number'
-  )
-}
-
 async function loadState() {
-  if (state) return state
-  if (loadPromise) return loadPromise
-
-  loadPromise = (async () => {
-    try {
-      const raw = await readFile(runtimeFile(), 'utf8')
-      const parsed: unknown = JSON.parse(raw)
-      state = isRuntimeState(parsed) ? parsed : structuredClone(EMPTY_STATE)
-    } catch {
-      state = structuredClone(EMPTY_STATE)
-    }
-    return state
-  })()
-
-  return loadPromise
-}
-
-async function persistState(current: RuntimeState) {
-  try {
-    const file = runtimeFile()
-    await mkdir(dirname(file), { recursive: true })
-    await writeFile(file, JSON.stringify(current, null, 2), 'utf8')
-  } catch (error) {
-    if (!persistenceWarningLogged) {
-      persistenceWarningLogged = true
-      console.warn(
-        '[ai-runtime] Persistent cache unavailable; using in-memory cache for this process.',
-        error,
-      )
-    }
-  }
+  return state
 }
 
 function enqueueMutation<T>(mutation: () => Promise<T>) {
@@ -176,7 +114,6 @@ export async function cacheResponse(
       source,
       value,
     }
-    await persistState(current)
   })
 }
 
@@ -198,7 +135,6 @@ export async function reserveAiCall() {
     }
 
     current.dailyCalls.count += 1
-    await persistState(current)
     return {
       allowed: true as const,
       count: current.dailyCalls.count,
