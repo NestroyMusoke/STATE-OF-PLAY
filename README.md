@@ -10,7 +10,15 @@ This project was built for the OpenAI Build Week Challenge with Codex.
 
 ## Why this exists
 
-News is usually consumed at a distance. Articles describe decisions after they have been made, quizzes test recall after reading, and general-purpose chatbots explain events in a conversational window. All three approaches can be useful, but none gives the learner a steering wheel.
+We are living through a period in which wars, elections, sanctions, climate shocks, economic decisions, public-health emergencies, and technological shifts reach into ordinary life almost immediately. Yet the systems through which many people encounter these events are optimized for speed, reaction, and replacement. A major story appears between entertainment clips, receives a few seconds of attention, and is displaced by the next trend before its causes, human stakes, or consequences have been understood.
+
+That is not a lack of information. It is a lack of meaningful contact with information. A headline may tell us that a leader imposed sanctions, opened a relief corridor, moved troops, or rejected a negotiation. It rarely lets us feel the constraints surrounding that choice, see what had to be sacrificed, or understand why the same action can look responsible from one capital and threatening from another. When events are reduced to fragments, people can become spectators to forces that shape their prices, safety, rights, communities, and future.
+
+Education should create the time and structure that the attention economy removes. It should help learners pause, investigate evidence, encounter conflicting interests, make a reasoned choice, and examine what follows. News is usually consumed at a distance. Articles describe decisions after they have been made, quizzes test recall after reading, and general-purpose chatbots explain events in a conversational window. All three approaches can be useful, but none gives the learner a steering wheel.
+
+AI gives us an opportunity to build a different relationship with knowledge. Its educational future should not be limited to chatbots that summarize chapters, answer questions, or generate quizzes. AI can become a simulation layer between information and understanding. It can transform a documented event into a structured space for practice, let a learner inhabit more than one perspective, respond to the learner's decisions, and then reconnect that experience to evidence and the historical record.
+
+STATE OF PLAY begins with current affairs because their urgency is visible, but the model extends to the past. Learners could enter a diplomatic breakdown, a constitutional crisis, an economic turning point, or a public-health response and confront the decisions that shaped it. They would not rewrite history or receive an AI-generated version as truth. They would use counterfactual play to understand why events unfolded, what alternatives existed, who carried the costs, and why leadership is more difficult than hindsight makes it appear.
 
 STATE OF PLAY adds a practical layer:
 
@@ -22,7 +30,7 @@ STATE OF PLAY adds a practical layer:
 6. The same event can be replayed from the rival nation's chair.
 7. A debrief compares the player's path with the historical record.
 
-The goal is not to predict the future or declare a correct political answer. The goal is to make causality, tradeoffs, perspective, and uncertainty tangible.
+The goal is not to predict the future or declare a correct political answer. The goal is to make causality, tradeoffs, perspective, and uncertainty tangible. If successful, this approach can help turn passive awareness into active civic and historical understanding. It can give teachers a new medium for discussion, give students a reason to investigate beyond the headline, and give people of different ages a safe place to appreciate the weight carried by real decisions.
 
 ## The 10-second experience
 
@@ -60,14 +68,14 @@ This persistent causal bridge is the project's answer to the disposable chatbot 
 
 ```mermaid
 flowchart LR
-    A[Real headline] --> B[Crisis on map]
-    B --> C[Nation-specific briefing]
-    C --> D[Competing advisors]
-    D --> E[Player decision]
-    E --> F[Consequence and meter changes]
-    F --> G[Persistent shared timeline]
-    G --> H[Opposite-chair replay]
-    H --> I[Historical debrief]
+    A["Real headline"] --> B["Crisis on map"]
+    B --> C["Nation-specific briefing"]
+    C --> D["Competing advisors"]
+    D --> E["Player decision"]
+    E --> F["Consequence and meter changes"]
+    F --> G["Persistent shared timeline"]
+    G --> H["Opposite-chair replay"]
+    H --> I["Historical debrief"]
 ```
 
 ### United States meters
@@ -94,20 +102,20 @@ STATE OF PLAY is a React single-page application and a small set of Node serverl
 
 ```mermaid
 flowchart TD
-    UI[React and Leaflet client] --> NEWS[/api/news]
-    UI --> LLM[/api/llm]
-    UI --> CONSEQUENCE[/api/consequence]
-    NEWS --> GDELT[GDELT]
-    NEWS --> YT[YouTube Atom feeds]
-    NEWS --> SERP[Optional SerpAPI]
-    NEWS --> SEED[Bundled seed headlines]
-    LLM --> ROUTER[OpenRouter gpt-oss-120b free]
-    LLM --> OPENAI[OpenAI GPT-5.6]
+    UI["React and Leaflet client"] --> NEWS["/api/news"]
+    UI --> LLM["/api/llm"]
+    UI --> CONSEQUENCE["/api/consequence"]
+    NEWS --> GDELT["GDELT"]
+    NEWS --> YT["YouTube Atom feeds"]
+    NEWS --> SERP["Optional SerpAPI"]
+    NEWS --> SEED["Bundled seed headlines"]
+    LLM --> ROUTER["OpenRouter gpt-oss-120b free"]
+    LLM --> OPENAI["OpenAI GPT-5.6"]
     CONSEQUENCE --> ROUTER
     CONSEQUENCE --> OPENAI
-    LLM --> FALLBACK[Deterministic fallback]
+    LLM --> FALLBACK["Deterministic fallback"]
     CONSEQUENCE --> FALLBACK
-    UI --> STORAGE[Browser localStorage]
+    UI --> STORAGE["Browser localStorage"]
 ```
 
 ### Frontend
@@ -219,27 +227,12 @@ npm run build
 - `test:api` sends exactly one live briefing request when a supported key is present. It sends zero requests when no key exists.
 - `build` runs TypeScript validation and creates the production Vite bundle.
 
-## Deploy free on Vercel
-
-The repository already includes `vercel.json`, so the Vite client and the three functions can deploy as one project.
-
-1. Push the repository to GitHub.
-2. Sign in to [Vercel](https://vercel.com/new) with GitHub.
-3. Import `NestroyMusoke/STATE-OF-PLAY`.
-4. Confirm Framework Preset is Vite.
-5. Confirm Build Command is `npm run build`.
-6. Confirm Output Directory is `dist`.
-7. Add `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` under Project Settings, Environment Variables.
-8. Apply the variables to Production, Preview, and Development.
-9. Select Deploy.
-10. After deployment, test `/api/news`, one US decision, the perspective switch, one Venezuelan decision, and the final debrief.
-
-Every later push to the connected branch creates a new deployment. Environment-variable changes require a redeployment before they affect an existing URL. See [DEPLOYMENT.md](./DEPLOYMENT.md) for the short release checklist.
-
-Recommended judging URLs:
+## Live demo
 
 - Standard run: `https://YOUR-PROJECT.vercel.app/`
 - Clean demo run: `https://YOUR-PROJECT.vercel.app/?demo=1`
+
+The clean demo URL ignores prior browser progress and opens the complete first-run experience. Replace both placeholders with the production domain after deployment.
 
 ## Why the Education track
 
@@ -332,4 +325,4 @@ This hackathon MVP focuses on one real-world relationship and one complete playa
 
 ## License
 
-No open-source license has been selected yet. All rights are reserved until a license file is added.
+STATE OF PLAY is available under the [MIT License](./LICENSE).
