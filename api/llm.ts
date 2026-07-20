@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { NATIONS } from '../src/game/nations'
+import { NATIONS } from '../src/game/nations.js'
 import type {
   BriefingPriorContext,
   BriefingRequest,
@@ -7,20 +7,20 @@ import type {
   IntelligenceReport,
   NationId,
   NationPromptContext,
-} from '../src/types'
-import { isIntelligenceReport } from './_shared/contracts'
+} from '../src/types.js'
+import { isIntelligenceReport } from './_shared/contracts.js'
 import {
   briefingModel,
   callLiveBriefing,
   resolveAiRuntime,
-} from './_shared/generation'
+} from './_shared/generation.js'
 import {
   cacheResponse,
   createCacheKey,
   getCachedResponse,
   logApiPath,
   reserveAiCall,
-} from './_shared/runtime'
+} from './_shared/runtime.js'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

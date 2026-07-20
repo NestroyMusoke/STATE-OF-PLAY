@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import seedHeadlineData from '../src/data/seedHeadlines.json'
-import type { Headline } from '../src/types'
+import seedHeadlineData from '../src/data/seedHeadlines.json' with { type: 'json' }
+import type { Headline } from '../src/types.js'
 
 const CACHE_TTL_MS = 60 * 60 * 1000
 const SERPAPI_ENDPOINT = 'https://serpapi.com/search'

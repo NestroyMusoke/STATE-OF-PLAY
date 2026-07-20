@@ -1,7 +1,7 @@
 import type {
   ConsequenceResponse,
   IntelligenceReport,
-} from '../../src/types'
+} from '../../src/types.js'
 
 type JsonSchema = Record<string, unknown>
 

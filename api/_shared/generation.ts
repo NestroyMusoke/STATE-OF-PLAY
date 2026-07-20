@@ -5,14 +5,14 @@ import type {
   ConsequenceRequest,
   ConsequenceResponse,
   IntelligenceReport,
-} from '../../src/types'
+} from '../../src/types.js'
 import {
   consequenceResponseSchema,
   intelligenceReportSchema,
   isConsequenceResponse,
   isIntelligenceReport,
   parseStructuredOutput,
-} from './contracts'
+} from './contracts.js'
 
 const BRIEFING_MAX_OUTPUT_TOKENS = 1_200
 const CONSEQUENCE_MAX_OUTPUT_TOKENS = 1_000

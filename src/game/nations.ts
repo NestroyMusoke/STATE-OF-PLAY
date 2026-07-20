@@ -3,7 +3,7 @@ import type {
   NationDefinition,
   NationId,
   NationPromptContext,
-} from '../types'
+} from '../types.js'
 
 const UNITED_STATES_ADVISORS: [AdvisorPersona, AdvisorPersona] = [
   {

@@ -5,21 +5,21 @@ import type {
   ConsequenceResponse,
   Crisis,
   NationId,
-} from '../src/types'
-import { isConsequenceResponse } from './_shared/contracts'
+} from '../src/types.js'
+import { isConsequenceResponse } from './_shared/contracts.js'
 import {
   callLiveConsequence,
   consequenceModel,
   optionLabel,
   resolveAiRuntime,
-} from './_shared/generation'
+} from './_shared/generation.js'
 import {
   cacheResponse,
   createCacheKey,
   getCachedResponse,
   logApiPath,
   reserveAiCall,
-} from './_shared/runtime'
+} from './_shared/runtime.js'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
