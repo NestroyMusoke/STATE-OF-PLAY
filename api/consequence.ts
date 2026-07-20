@@ -11,6 +11,7 @@ import {
   callLiveConsequence,
   consequenceModel,
   optionLabel,
+  resolveAiRuntime,
 } from './_shared/generation'
 import {
   cacheResponse,
@@ -142,15 +143,21 @@ export default async function handler(
   const nation = requestNation(body)
   const headlineId = body.headlineId ?? body.crisis.id
   const choice = optionLabel(body.chosenOption)
+  const aiRuntime = resolveAiRuntime()
+  const provider = aiRuntime?.provider ?? 'fallback'
+  const model = aiRuntime
+    ? consequenceModel(body, aiRuntime.provider)
+    : 'fallback'
   const cacheKey = createCacheKey({
     operation: 'consequence',
+    provider,
+    model,
     nation,
     crisisId: body.crisis.id,
     headlineId,
     chosenOption: choice,
   })
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim()
-  const cached = await getCachedResponse<ConsequenceResponse>(cacheKey, !!apiKey)
+  const cached = await getCachedResponse<ConsequenceResponse>(cacheKey, !!aiRuntime)
 
   if (cached && isConsequenceResponse(cached.value)) {
     logApiPath('consequence', {
@@ -163,7 +170,7 @@ export default async function handler(
   }
 
   const fallback = fallbackConsequence(body)
-  if (!apiKey) {
+  if (!aiRuntime) {
     await cacheResponse(cacheKey, fallback, 'fallback-missing-key')
     logApiPath('consequence', {
       path: 'fallback',
@@ -188,16 +195,16 @@ export default async function handler(
     return
   }
 
-  const model = consequenceModel(body)
   try {
     logApiPath('consequence', {
       path: 'live',
+      provider: aiRuntime.provider,
       model,
       count: budget.count,
       limit: budget.limit,
       key: cacheKey,
     })
-    const consequence = await callLiveConsequence(apiKey, body, model)
+    const consequence = await callLiveConsequence(aiRuntime, body, model)
     await cacheResponse(cacheKey, consequence, 'live')
     sendConsequence(response, consequence)
   } catch (error) {
@@ -205,11 +212,12 @@ export default async function handler(
     logApiPath('consequence', {
       path: 'fallback',
       reason: 'live-call-failed',
+      provider: aiRuntime.provider,
       model,
       key: cacheKey,
     })
     console.error(
-      '[consequence] OpenRouter call failed; serving deterministic fallback.',
+      `[consequence] ${aiRuntime.provider} call failed; serving deterministic fallback.`,
       error,
     )
     sendConsequence(response, fallback)

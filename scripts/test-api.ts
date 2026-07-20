@@ -4,21 +4,22 @@ import type { BriefingRequest } from '../src/types'
 import {
   briefingModel,
   callLiveBriefing,
+  resolveAiRuntime,
 } from '../api/_shared/generation'
 import { logApiPath, reserveAiCall } from '../api/_shared/runtime'
 
 if (existsSync('.env')) loadEnvFile('.env')
 
-const apiKey = process.env.OPENROUTER_API_KEY?.trim()
+const aiRuntime = resolveAiRuntime()
 
-if (!apiKey) {
+if (!aiRuntime) {
   logApiPath('test:api', {
     path: 'skipped',
     reason: 'missing-key',
     requests: 0,
   })
   console.info(
-    '[test:api] Add OPENROUTER_API_KEY to .env, then rerun this command. No API request was sent.',
+    '[test:api] Add OPENROUTER_API_KEY or OPENAI_API_KEY to .env, then rerun. No API request was sent.',
   )
   process.exit(0)
 }
@@ -32,7 +33,7 @@ if (!budget.allowed) {
     count: budget.count,
     limit: budget.limit,
   })
-  throw new Error('Daily OpenRouter call ceiling reached; no test request was sent.')
+  throw new Error('Daily AI call ceiling reached; no test request was sent.')
 }
 
 const request: BriefingRequest = {
@@ -70,22 +71,24 @@ const request: BriefingRequest = {
   },
 }
 
-const model = briefingModel()
+const model = briefingModel(aiRuntime.provider)
 logApiPath('test:api', {
   path: 'live',
+  provider: aiRuntime.provider,
   model,
   requests: 1,
   count: budget.count,
   limit: budget.limit,
 })
 
-const report = await callLiveBriefing(apiKey, request, model)
+const report = await callLiveBriefing(aiRuntime, request, model)
 
 console.info('[test:api] SUCCESS — exactly one request sent and schema validated.')
 console.info(
   JSON.stringify(
     {
       model,
+      provider: aiRuntime.provider,
       briefingCharacters: report.briefing.length,
       options: report.options.length,
       advisors: report.advisors.map((advisor) => advisor.role),

@@ -24,6 +24,15 @@ OPENROUTER_DAILY_CALL_LIMIT=200
 OPENROUTER_SITE_URL=https://your-project.vercel.app
 ```
 
+This is the free default. Later, add the following without changing code:
+
+```text
+OPENAI_API_KEY=your-paid-openai-key
+OPENAI_MODEL=gpt-5.6
+```
+
+When both keys exist, OpenAI takes priority. Set `AI_PROVIDER=openrouter` if you temporarily want to force the free OpenRouter path while keeping both keys configured.
+
 `SERPAPI_KEY` is optional. Without it, the news endpoint still uses keyless sources and bundled seed data.
 
 Do not prefix secrets with `VITE_`; that would expose them to the browser bundle.

@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "generate:audio": "node scripts/generate-audio.mjs",
     "test:api": "tsx scripts/test-api.ts",
+    "test:provider": "tsx scripts/test-provider.ts",
     "preview": "vite preview"
   },
   "dependencies": {

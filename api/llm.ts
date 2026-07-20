@@ -9,7 +9,11 @@ import type {
   NationPromptContext,
 } from '../src/types'
 import { isIntelligenceReport } from './_shared/contracts'
-import { briefingModel, callLiveBriefing } from './_shared/generation'
+import {
+  briefingModel,
+  callLiveBriefing,
+  resolveAiRuntime,
+} from './_shared/generation'
 import {
   cacheResponse,
   createCacheKey,
@@ -168,15 +172,19 @@ export default async function handler(
 
   const nationId = body.perspective.nationId
   const headlineId = body.headlineId ?? body.crisis.id
+  const aiRuntime = resolveAiRuntime()
+  const provider = aiRuntime?.provider ?? 'fallback'
+  const model = aiRuntime ? briefingModel(aiRuntime.provider) : 'fallback'
   const cacheKey = createCacheKey({
     operation: 'briefing',
+    provider,
+    model,
     nation: nationId,
     crisisId: body.crisis.id,
     headlineId,
     priorContext: body.priorContext ?? null,
   })
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim()
-  const cached = await getCachedResponse<IntelligenceReport>(cacheKey, !!apiKey)
+  const cached = await getCachedResponse<IntelligenceReport>(cacheKey, !!aiRuntime)
 
   if (cached && isIntelligenceReport(cached.value)) {
     logApiPath('llm', {
@@ -189,7 +197,7 @@ export default async function handler(
   }
 
   const fallback = fallbackReport(nationId, body.priorContext)
-  if (!apiKey) {
+  if (!aiRuntime) {
     await cacheResponse(cacheKey, fallback, 'fallback-missing-key')
     logApiPath('llm', {
       path: 'fallback',
@@ -214,16 +222,16 @@ export default async function handler(
     return
   }
 
-  const model = briefingModel()
   try {
     logApiPath('llm', {
       path: 'live',
+      provider: aiRuntime.provider,
       model,
       count: budget.count,
       limit: budget.limit,
       key: cacheKey,
     })
-    const report = await callLiveBriefing(apiKey, body, model)
+    const report = await callLiveBriefing(aiRuntime, body, model)
     await cacheResponse(cacheKey, report, 'live')
     sendReport(response, report)
   } catch (error) {
@@ -231,10 +239,14 @@ export default async function handler(
     logApiPath('llm', {
       path: 'fallback',
       reason: 'live-call-failed',
+      provider: aiRuntime.provider,
       model,
       key: cacheKey,
     })
-    console.error('[llm] OpenRouter call failed; serving deterministic fallback.', error)
+    console.error(
+      `[llm] ${aiRuntime.provider} call failed; serving deterministic fallback.`,
+      error,
+    )
     sendReport(response, fallback)
   }
 }
