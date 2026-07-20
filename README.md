@@ -2,13 +2,22 @@
 
 > The headline is real. The next move is yours.
 
-STATE OF PLAY is an AI-assisted geopolitical strategy game that turns real news into playable crisis simulations. Instead of asking a chatbot what happened, the player enters the situation room, hears competing advice, commits a national response, and lives with the consequences.
+STATE OF PLAY is an AI-assisted geopolitical strategy game that turns real news into playable crisis simulations. Instead of asking a chatbot what happened, you enter the situation room, hear competing advice, commit a national response, and live with the consequences.
 
 The current MVP follows one shared crisis through two seats of power: Washington and Caracas. A decision made as the United States changes the version of the same event later presented to Venezuela. The result is one timeline, two perspectives, and a concrete way to explore how policy choices create second-order effects.
 
 This project was built for the OpenAI Build Week Challenge with Codex.
 
-## Why this exists
+## Play it
+
+- [Launch STATE OF PLAY](https://state-of-play-nine.vercel.app/)
+- [Launch a clean judging run](https://state-of-play-nine.vercel.app/?demo=1)
+
+The clean judging URL ignores prior browser progress and opens the complete first-run experience.
+
+## The educational vision
+
+### Why this exists
 
 We are living through a period in which wars, elections, sanctions, climate shocks, economic decisions, public-health emergencies, and technological shifts reach into ordinary life almost immediately. Yet the systems through which many people encounter these events are optimized for speed, reaction, and replacement. A major story appears between entertainment clips, receives a few seconds of attention, and is displaced by the next trend before its causes, human stakes, or consequences have been understood.
 
@@ -32,9 +41,92 @@ STATE OF PLAY adds a practical layer:
 
 The goal is not to predict the future or declare a correct political answer. The goal is to make causality, tradeoffs, perspective, and uncertainty tangible. If successful, this approach can help turn passive awareness into active civic and historical understanding. It can give teachers a new medium for discussion, give students a reason to investigate beyond the headline, and give people of different ages a safe place to appreciate the weight carried by real decisions.
 
-## The 10-second experience
+### Who it is for
+
+STATE OF PLAY is designed for secondary-school and university learners studying history, civics, politics, economics, journalism, and media literacy. It can also serve teachers, museums, civic organizations, and independent learners who want to explore an event through decisions rather than summaries alone.
+
+Education is therefore the clearest Build Week category. The interface is a game, but its intended outcome is a working understanding of historical causality, policy tradeoffs, and competing perspectives. Apps for Your Life describes the consumer surface, but it understates the educational purpose.
+
+### Why simulation is a credible direction
+
+STATE OF PLAY is an experimental product, not a completed learning-outcomes study. The following research supports the design direction without proving the efficacy of this MVP:
+
+- Freeman et al. synthesized 225 studies and found that active learning improved performance and reduced failure rates compared with traditional lecturing in undergraduate STEM courses. This supports asking the learner to act, not only receive an explanation. [PNAS, 2014](https://doi.org/10.1073/pnas.1319030111)
+- Chernikova et al. reviewed 145 empirical studies of simulation-based learning in higher education and reported a large positive overall effect on complex skills. This informed the use of situated decisions, consequences, and instructional scaffolding. [Review of Educational Research, 2020](https://doi.org/10.3102/0034654320933544)
+- Wouters et al. found advantages for learning and retention in serious games compared with conventional instruction, but did not find a statistically significant general motivation advantage. That distinction matters. A dramatic interface is not evidence of learning, so future versions must evaluate outcomes directly. [Journal of Educational Psychology, 2013](https://doi.org/10.1037/a0031311)
+
+Together, these findings support a careful thesis: well-scaffolded, active simulations can complement teaching by giving learners structured practice with complex decisions. They do not justify replacing teachers, primary sources, or historical scholarship.
+
+## The experience
+
+### The first 10 seconds
 
 The opening establishes the stakes immediately: a real event is already unfolding, four national indicators are exposed, and the player must act. Every choice can strengthen one objective while damaging another. Survive a six-turn term, preserve the state, and discover how the other side experiences the consequences of your decisions.
+
+### One turn inside the situation room
+
+Consider one representative path through the current US and Venezuela scenario.
+
+A real headline reports that more than 100 economists are urging the United States to lift sanctions after earthquakes in Venezuela. The story appears as a crisis pin over Caracas. Opening it produces a briefing written for the player in Washington. The Secretary of State argues that relief and diplomacy can preserve legitimacy. The Secretary of Defense warns that surrendering leverage may weaken US credibility.
+
+The player chooses sanctions relief. The order is stamped `EXECUTED`. The map ripples. Approval, economic leverage, legitimacy, and tension react as the consequence enters the shared timeline. The choice is no longer an isolated answer in a chat window. It has become state.
+
+The player then switches chairs. The interface moves from Washington to Caracas, but the game does not reset the event. Venezuela receives the same crisis through a different political reality. In the current callback model, a US choice framed around relief can increase Reconstruction and Foreign Support while reducing Sovereignty and Public Morale. The Venezuelan briefing states the cause directly:
+
+> Because the US chose sanctions relief, reconstruction access improves, but the street questions whether Caracas traded sovereignty for Washington's support.
+
+Now the Venezuelan player must answer the consequences created in Washington. Accepting aid may accelerate recovery while deepening accusations of dependence. Rejecting it may defend sovereignty while leaving damaged communities without resources. The mechanic turns perspective taking from a paragraph to a problem the learner must navigate.
+
+This walkthrough is representative. Live AI wording and immediate consequence deltas can vary, while the shared event, separate national state, bounded meters, and cross-nation callback remain part of the game contract.
+
+### One event, two chairs
+
+The central mechanic is shared-event replay. The second playthrough does not begin from a blank prompt. It inherits the first nation's recorded action and reframes the same underlying event around the priorities of the nation now being played.
+
+This persistent causal bridge is the project's answer to the disposable chatbot interaction. The simulation remembers what the player did, makes the other side absorb it, and preserves both readings in one timeline.
+
+### Gameplay model
+
+```mermaid
+flowchart LR
+    A["Real headline"] --> B["Crisis on map"]
+    B --> C["Nation-specific briefing"]
+    C --> D["Competing advisors"]
+    D --> E["Player decision"]
+    E --> F["Consequence and meter changes"]
+    F --> G["Persistent shared timeline"]
+    G --> H["Opposite-chair replay"]
+    H --> I["Historical debrief"]
+```
+
+### Stakes and national meters
+
+| United States | Failure condition | Venezuela | Failure condition |
+| --- | --- | --- | --- |
+| Domestic Approval | 0 means removal from office | Sovereignty | 0 means loss of self-rule |
+| Treasury and Oil Leverage | 0 means economic collapse | Public Morale | 0 means uprising and removal |
+| Global Legitimacy | Shapes final stability and score | Reconstruction | 0 means recovery collapse |
+| Global Tension | 100 means war | Foreign Support | 0 means total isolation |
+
+A term lasts six crisis turns. Reaching the end with the active nation intact unlocks the debrief. Crossing a failure threshold ends the run immediately and names the specific cause.
+
+### What the Legacy Score rewards
+
+The Legacy Score is deterministic and transparent. An LLM does not secretly grade the player.
+
+For a single-nation run, the score combines three signals:
+
+| Signal | Weight | Meaning |
+| --- | ---: | --- |
+| Final national stability | 72% | The average of the nation's four normalized meters. For the United States, lower Global Tension counts as greater stability. |
+| Historical alignment | Up to 20 points | The share of recorded choices connected to the scenario's documented themes: aid, relief, reconstruction, sanctions, diplomacy, cooperation, humanitarian action, and open channels. |
+| Survival result | +8 or -12 points | Completing the term earns a survival bonus. Losing the run applies a penalty. |
+
+The final value is rounded and clamped from 0 to 100. It rewards keeping conflicting systems viable while engaging with the real historical pressures in the scenario. It does not declare one political ideology correct, and it does not measure the quality of a learner's written reasoning.
+
+The two-chair debrief uses a separate Shared Legacy Score. It averages normalized US stability and Venezuelan stability, making transferred pressure visible. Stabilizing Washington by breaking Caracas, or the reverse, cannot produce the strongest shared result. The debrief then presents both recorded decisions beside a real historical fact. This comparison is deterministic in the MVP, not an AI-generated claim about what history should have been.
+
+The current history-alignment mechanism is intentionally simple and is best understood as a hackathon proxy, not a validated educational assessment. A classroom version should replace keyword alignment with an educator-authored rubric that evaluates evidence use, recognition of tradeoffs, perspective taking, and post-game reflection.
 
 ## What the MVP does today
 
@@ -52,53 +144,9 @@ The opening establishes the stakes immediately: a real event is already unfoldin
 - Ends with a two-chair debrief built from a shared decision timeline.
 - Remains fully playable without news or AI credentials through deterministic fallbacks.
 
-## One event, two chairs
+## How the vision becomes software
 
-The central mechanic is shared-event replay.
-
-A humanitarian concession that improves US legitimacy may increase Venezuelan reconstruction capacity while reducing perceived sovereignty. A pressure campaign that appears credible in Washington may strengthen resistance in Caracas while damaging morale and recovery. The second playthrough does not start from a blank prompt. It inherits the player's recorded actions from the first.
-
-The interface states this relationship directly with a callout such as:
-
-> Because the US chose X, reconstruction access improves, but the street questions whether Caracas traded sovereignty for Washington's support.
-
-This persistent causal bridge is the project's answer to the disposable chatbot interaction. The simulation remembers what the player did and reframes the same underlying event around the nation now being played.
-
-## Gameplay loop
-
-```mermaid
-flowchart LR
-    A["Real headline"] --> B["Crisis on map"]
-    B --> C["Nation-specific briefing"]
-    C --> D["Competing advisors"]
-    D --> E["Player decision"]
-    E --> F["Consequence and meter changes"]
-    F --> G["Persistent shared timeline"]
-    G --> H["Opposite-chair replay"]
-    H --> I["Historical debrief"]
-```
-
-### United States meters
-
-- Domestic Approval
-- Treasury and Oil Leverage
-- Global Legitimacy
-- Global Tension
-
-The run ends if Approval or Treasury reaches zero, or if Tension reaches 100.
-
-### Venezuela meters
-
-- Sovereignty
-- Public Morale
-- Reconstruction
-- Foreign Support
-
-The run ends if any of these reaches zero.
-
-## Technical architecture
-
-STATE OF PLAY is a React single-page application and a small set of Node serverless functions deployed together.
+The architecture follows the educational model. News supplies the event, structured generation creates perspective-specific material, client state preserves consequences, and the opposite-chair request carries prior decisions forward. STATE OF PLAY packages this as a React single-page application and three Node serverless functions.
 
 ```mermaid
 flowchart TD
@@ -132,7 +180,7 @@ flowchart TD
 - `api/news.ts` aggregates GDELT, public YouTube Atom feeds, optional SerpAPI results, and bundled seed data.
 - `api/llm.ts` produces strict-schema briefings and advisor lines.
 - `api/consequence.ts` produces strict-schema narratives, meter deltas, and an optional follow-on crisis.
-- Shared runtime code validates structured output, caches responses, logs the selected path, and enforces a hard daily AI call ceiling.
+- Shared runtime code validates structured output, caches responses, logs the selected path, and enforces a per-instance daily AI call ceiling.
 
 ### AI provider routing
 
@@ -226,31 +274,6 @@ npm run build
 - `test:provider` verifies provider selection without making a network request.
 - `test:api` sends exactly one live briefing request when a supported key is present. It sends zero requests when no key exists.
 - `build` runs TypeScript validation and creates the production Vite bundle.
-
-## Live demo
-
-- [Launch STATE OF PLAY](https://state-of-play-nine.vercel.app/)
-- [Launch a clean demo run](https://state-of-play-nine.vercel.app/?demo=1)
-
-The clean demo URL ignores prior browser progress and opens the complete first-run experience.
-
-## Why the Education track
-
-Education is the clearest category for STATE OF PLAY.
-
-The product is designed around active learning, simulation, perspective taking, and reflective comparison with history. Its intended users include secondary schools, universities, journalism and media-literacy programs, museums, civic organizations, and independent learners. The interface is a game, but the product outcome is a deeper working understanding of policy tradeoffs and historical causality.
-
-Apps for Your Life would describe the consumer surface, but it would understate the central innovation. STATE OF PLAY is not primarily a news reader or entertainment utility. It is a new educational interaction model for current affairs and history.
-
-## Research foundation
-
-STATE OF PLAY is an experimental product, not a completed learning-outcomes study. The research below supports the design direction rather than proving the efficacy of this particular application.
-
-- Freeman et al. synthesized 225 studies and found that active learning improved performance and reduced failure rates compared with traditional lecturing in undergraduate STEM courses. This supports the broader choice to make the learner act rather than only receive an explanation. [PNAS, 2014](https://doi.org/10.1073/pnas.1319030111)
-- Chernikova et al. reviewed 145 empirical studies of simulation-based learning in higher education and reported a large positive overall effect on complex skills. This informed the decision to model policy as situated practice with consequences and scaffolding. [Review of Educational Research, 2020](https://doi.org/10.3102/0034654320933544)
-- Wouters et al. analyzed serious-game research and found advantages for learning and retention over conventional instruction, while not finding a statistically significant general motivation advantage. That nuance matters: a compelling interface is not enough, so future versions must test learning directly. [Journal of Educational Psychology, 2013](https://doi.org/10.1037/a0031311)
-
-These findings point toward a careful product thesis: well-scaffolded, active simulations can complement instruction by giving learners structured practice with complex decisions. They do not justify replacing teachers, primary sources, or historical scholarship.
 
 ## How Codex accelerated the build
 
