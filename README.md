@@ -229,10 +229,10 @@ npm run build
 
 ## Live demo
 
-- Standard run: `https://YOUR-PROJECT.vercel.app/`
-- Clean demo run: `https://YOUR-PROJECT.vercel.app/?demo=1`
+- [Launch STATE OF PLAY](https://state-of-play-nine.vercel.app/)
+- [Launch a clean demo run](https://state-of-play-nine.vercel.app/?demo=1)
 
-The clean demo URL ignores prior browser progress and opens the complete first-run experience. Replace both placeholders with the production domain after deployment.
+The clean demo URL ignores prior browser progress and opens the complete first-run experience.
 
 ## Why the Education track
 
